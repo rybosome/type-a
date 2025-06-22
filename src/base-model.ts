@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // --------------------
 // Primitive & Constraints
 // --------------------
@@ -24,38 +26,39 @@ export function Field<T extends Typeable>(opts: {
 // Schema and Model Types
 // --------------------
 
-type SchemaFields = {
-  [key: string]: FieldType<Typeable>;
-};
-
-type ValueMap<F extends SchemaFields> = {
+type ValueMap<F extends Record<string, FieldType<any>>> = {
   [K in keyof F]: F[K] extends FieldType<infer V> ? V : never;
 };
 
 // --------------------
-// BaseModel
+// Schema
 // --------------------
 
-export class BaseModel<F extends SchemaFields> {
+export class Schema<F extends Record<string, FieldType<any>>> {
   // store backing fields
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
   };
 
   constructor(input: ValueMap<F>) {
-    const schema = ((this.constructor as unknown) as { _schema: F })._schema;
+    const schema = (this.constructor as unknown as { _schema: F })._schema;
 
     const fields = {} as {
       [K in keyof F]: FieldType<ValueMap<F>[K]>;
     };
 
     // iterate using Object.entries and strongly typed K
-    for (const [key, fieldDef] of Object.entries(schema) as [keyof F, F[keyof F]][]) {
+    for (const [key, fieldDef] of Object.entries(schema) as [
+      keyof F,
+      F[keyof F],
+    ][]) {
       const value = input[key];
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
         value,
-        logical: fieldDef.logical as LogicalConstraint<ValueMap<F>[typeof key]> | undefined,
+        logical: fieldDef.logical as
+          | LogicalConstraint<ValueMap<F>[typeof key]>
+          | undefined,
       };
 
       fields[key] = field;
@@ -72,19 +75,19 @@ export class BaseModel<F extends SchemaFields> {
     this._fields = fields;
   }
 
-  static withSchema<F extends SchemaFields>(schema: F) {
-    class ModelWithSchema extends BaseModel<F> {
+  static with<F extends Record<string, FieldType<any>>>(schema: F) {
+    class ModelWithSchema extends Schema<F> {
       static _schema = schema;
     }
 
     return ModelWithSchema as {
-      new (input: ValueMap<F>): BaseModel<F> & ValueMap<F>;
+      new (input: ValueMap<F>): Schema<F> & ValueMap<F>;
       _schema: F;
     };
   }
 
   validate(): string[] {
-    const schema = ((this.constructor as unknown) as { _schema: F })._schema;
+    const schema = (this.constructor as unknown as { _schema: F })._schema;
     const errors: string[] = [];
 
     for (const key in schema) {

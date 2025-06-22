@@ -4,13 +4,16 @@
     "module": "ES2022",
     "declaration": true,
     "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@rybosome/type-a": ["src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }
-
