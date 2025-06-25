@@ -24,7 +24,12 @@ export interface FieldType<T extends Typeable> {
    * returning the value (useful for non-primitive or non-constant defaults).
    */
   default?: T | (() => T);
-  is?: LogicalConstraint<T>;
+  /**
+   * Optional validator(s). When an array is provided, every constraint is run
+   * in order until the first failure (the returned string) or until all pass
+   * (returns `true`).
+   */
+  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -39,14 +44,14 @@ export interface FieldType<T extends Typeable> {
  */
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
   default?: T | (() => T);
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T> {
   return {
     value: undefined,
@@ -80,6 +85,22 @@ type InputValueMap<F extends Record<string, FieldType<any>>> = {
 // Schema
 // --------------------
 
+/**
+ * Combine several constraints into one.  Runs each in sequence and returns the
+ * first non-`true` result (an error string) or `true` when all pass.
+ */
+function composeConstraints<T extends Typeable>(
+  constraints: LogicalConstraint<T>[],
+): LogicalConstraint<T> {
+  return (val: T) => {
+    for (const c of constraints) {
+      const res = c(val);
+      if (res !== true) return res;
+    }
+    return true;
+  };
+}
+
 export class Schema<F extends Record<string, FieldType<any>>> {
   // store backing fields
   private readonly _fields: {
@@ -109,9 +130,18 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
         value: value as ValueMap<F>[typeof key],
-        is: fieldDef.is as
-          | LogicalConstraint<ValueMap<F>[typeof key]>
-          | undefined,
+        // Normalise `is` so `_fields` always stores a single function
+        is: (() => {
+          const rawIs =
+            fieldDef.is as
+              | LogicalConstraint<ValueMap<F>[typeof key]>
+              | LogicalConstraint<ValueMap<F>[typeof key]>[]
+              | undefined;
+          if (Array.isArray(rawIs)) {
+            return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
+          }
+          return rawIs;
+        })(),
         // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<ValueMap<F>[typeof key]>["default"],
       };
