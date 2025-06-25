@@ -5,7 +5,7 @@ import type { ErrLog, Result } from "./types/result";
 // Primitive & Constraints
 // --------------------
 
-export type Typeable = string | number | boolean;
+export type Typeable = string | number | boolean | null | undefined;
 
 export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 
@@ -24,7 +24,11 @@ export interface FieldType<T extends Typeable> {
    * returning the value (useful for non-primitive or non-constant defaults).
    */
   default?: T | (() => T);
-  is?: LogicalConstraint<T>;
+  /**
+   * Validation constraint that will only be invoked when a *non-nullish*
+   * (neither `null` nor `undefined`) value is present.
+   */
+  is?: LogicalConstraint<NonNullable<T>>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -39,14 +43,14 @@ export interface FieldType<T extends Typeable> {
  */
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
   default?: T | (() => T);
-  is?: LogicalConstraint<T>;
+  is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T> {
   return {
     value: undefined,
@@ -69,11 +73,19 @@ type ValueMap<F extends Record<string, FieldType<any>>> = {
  * • Keys without a default are required.
  */
 type InputValueMap<F extends Record<string, FieldType<any>>> = {
-  // required when no default
-  [K in keyof F as F[K] extends { default: any } ? never : K]: ValueMap<F>[K];
+  // required when no default *and* undefined is not permitted
+  [K in keyof F as F[K] extends { default: any }
+    ? never
+    : undefined extends ValueMap<F>[K]
+      ? never
+      : K]: ValueMap<F>[K];
 } & {
-  // optional when default present
-  [K in keyof F as F[K] extends { default: any } ? K : never]?: ValueMap<F>[K];
+  // optional when default present OR undefined is allowed
+  [K in keyof F as F[K] extends { default: any }
+    ? K
+    : undefined extends ValueMap<F>[K]
+      ? K
+      : never]?: ValueMap<F>[K];
 };
 
 // --------------------
@@ -110,7 +122,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
       const field: FieldType<ValueMap<F>[typeof key]> = {
         value: value as ValueMap<F>[typeof key],
         is: fieldDef.is as
-          | LogicalConstraint<ValueMap<F>[typeof key]>
+          | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
           | undefined,
         // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<ValueMap<F>[typeof key]>["default"],
@@ -198,8 +210,8 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     for (const key in schema) {
       const field = this._fields[key];
       const is = field.is;
-      if (is && field.value !== undefined) {
-        const result = is(field.value);
+      if (is && field.value !== undefined && field.value !== null) {
+        const result = is(field.value as NonNullable<typeof field.value>);
         if (result !== true) errors.push(`${key}: ${result}`);
       }
     }
