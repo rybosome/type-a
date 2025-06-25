@@ -44,9 +44,14 @@ export interface FieldType<T extends Typeable> {
 type FieldWithDefault<T extends Typeable> = FieldType<T> & {
   default: T | (() => T);
 };
-type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default"> & {
-  default?: undefined;
-};
+/**
+ * Field descriptor *without* a default.
+ *
+ * By omitting the `default` key completely, the conditional type used in
+ * `InputValueMap` (`F[K] extends { default: any }`) correctly recognises that
+ * this field lacks a default and may therefore be required.
+ */
+type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
 
 /**
  * Create a field descriptor.
@@ -65,11 +70,19 @@ export function Of<T extends Typeable>(opts: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T> {
-  return {
-    value: undefined,
-    default: opts.default,
+  const base = {
+    value: undefined as T | undefined,
     is: opts.is,
   };
+
+  // Only attach the `default` property when the caller actually supplied one.
+  if ("default" in opts && opts.default !== undefined) {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    return { ...base, default: opts.default } as FieldType<T>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return base as FieldType<T>;
 }
 
 // --------------------
