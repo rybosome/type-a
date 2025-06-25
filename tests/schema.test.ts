@@ -91,7 +91,9 @@ describe("BaseModel", () => {
 
   it("accepts a value when all composed validators pass", () => {
     class Model extends Schema.from({
-      age: Of<number>({ is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")] }),
+      age: Of<number>({
+        is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")],
+      }),
     }) {}
 
     const m = new Model({ age: 12 });
