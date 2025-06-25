@@ -51,12 +51,10 @@ export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T>;
 export function Of<T extends Typeable>(): FieldType<T>;
-export function Of<T extends Typeable>(
-  opts?: {
-    default?: T | (() => T);
-    is?: LogicalConstraint<T> | LogicalConstraint<T>[];
-  },
-): FieldType<T> {
+export function Of<T extends Typeable>(opts?: {
+  default?: T | (() => T);
+  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
+}): FieldType<T> {
   return {
     value: undefined,
     default: opts?.default,
