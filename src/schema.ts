@@ -94,24 +94,40 @@ type ValueMap<F extends Record<string, FieldType<any>>> = {
 };
 
 /**
- * Compute constructor input map:
- * • Keys with an explicit default are optional.
- * • Keys without a default are required.
+ * Keys that are optional in the constructor's input object.
+ *
+ *  • A key is optional when the field descriptor provides a `default`, _or_
+ *  • the declared value type already allows `undefined`.
  */
-type InputValueMap<F extends Record<string, FieldType<any>>> = {
-  // required when no default *and* undefined is not permitted
-  [K in keyof F as F[K] extends { default: any }
-    ? never
-    : undefined extends ValueMap<F>[K]
-      ? never
-      : K]: ValueMap<F>[K];
-} & {
-  // optional when default present OR undefined is allowed
-  [K in keyof F as F[K] extends { default: any }
+type OptionalKeys<F extends Record<string, FieldType<any>>> = {
+  [K in keyof F]: F[K] extends { default: any }
     ? K
     : undefined extends ValueMap<F>[K]
       ? K
-      : never]?: ValueMap<F>[K];
+      : never;
+}[keyof F];
+
+/**
+ * Keys that **must** be provided in the constructor's input object.
+ * (Simply the complement of `OptionalKeys`.)
+ */
+type RequiredKeys<F extends Record<string, FieldType<any>>> = {
+  [K in keyof F]: F[K] extends { default: any }
+    ? never
+    : undefined extends ValueMap<F>[K]
+      ? never
+      : K;
+}[keyof F];
+
+/**
+ * Constructor input map:
+ *  • Keys in `RequiredKeys` are mandatory.
+ *  • Keys in `OptionalKeys` may be omitted.
+ */
+type InputValueMap<F extends Record<string, FieldType<any>>> = {
+  [K in RequiredKeys<F>]: ValueMap<F>[K];
+} & {
+  [K in OptionalKeys<F>]?: ValueMap<F>[K];
 };
 
 // --------------------
