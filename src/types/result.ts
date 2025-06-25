@@ -1,4 +1,4 @@
-/**
+/ **
  * Generic utility/result helpers.
  *
  * Result – discriminated union carrying either a valid value (`val`) or an
@@ -30,6 +30,7 @@ export type ErrLog<T> = {
 };
 
 /**
- * Convenience alias for optional values.
+ * Convenience alias representing the same shape returned by `Schema.tryNew`.
+ * On success `val` is provided, on failure `errs` is populated.
  */
-export type Maybe<T> = T | undefined;
+export type Maybe<T> = Result<T, ErrLog<T>>;

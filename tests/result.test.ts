@@ -14,11 +14,21 @@ describe("ErrLog", () => {
 });
 
 describe("Maybe<T>", () => {
-  it("behaves as an optional value (T | undefined)", () => {
-    const some: Maybe<number> = 42;
-    const none: Maybe<number> = undefined;
+  it("represents success or failure results", () => {
+    type Payload = { x: number };
 
-    expect(some).toBe(42);
-    expect(none).toBeUndefined();
+    const success: Maybe<Payload> = { val: { x: 1 }, errs: undefined };
+    const failure: Maybe<Payload> = {
+      val: undefined,
+      errs: { x: "bad", summarize: () => ["x: bad"] },
+    };
+
+    // success shape
+    expect(success.val).toEqual({ x: 1 });
+    expect(success.errs).toBeUndefined();
+
+    // failure shape
+    expect(failure.val).toBeUndefined();
+    expect(failure.errs?.summarize()).toEqual(["x: bad"]);
   });
 });

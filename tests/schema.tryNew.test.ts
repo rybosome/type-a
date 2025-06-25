@@ -1,14 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
 
 // Create a minimal schema with two distinct fields
 const User = Schema.from({
-  name: Of<string>({
-    is: (v) => (v.length > 0 ? true : "must not be empty"),
-  }),
-  age: Of<number>({
-    is: (v) => (v >= 18 ? true : "must be >= 18"),
-  }),
+  name: Of<string>({ is: nonEmpty }),
+  age: Of<number>({ is: atLeast(18) }),
 });
 
 describe("Schema.tryNew", () => {
@@ -39,14 +35,17 @@ describe("Schema.tryNew", () => {
 
     // field-level messages
     expect(errs).toHaveProperty("name", "must not be empty");
-    expect(errs).toHaveProperty("age", "must be >= 18");
+    expect(errs).toHaveProperty("age", "10 is not atLeast(18)");
 
     // all schema keys represented in ErrLog
     expect(Object.keys(errs)).toEqual(expect.arrayContaining(["name", "age"]));
 
     // summarize returns raw validation messages
     expect(errs.summarize()).toEqual(
-      expect.arrayContaining(["name: must not be empty", "age: must be >= 18"]),
+      expect.arrayContaining([
+        "name: must not be empty",
+        "age: 10 is not atLeast(18)",
+      ]),
     );
   });
 });
