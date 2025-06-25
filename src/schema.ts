@@ -226,8 +226,11 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     const errors: string[] = [];
 
     for (const key in schema) {
-      const field = this._fields[key];
-      const is = field.is;
+      const field = this._fields[key as keyof F];
+
+      // Cast `is` so we have a stable, callable signature
+      const is = field.is as ((val: unknown) => true | string) | undefined;
+
       if (is && field.value !== undefined) {
         const result = is(field.value);
         if (result !== true) errors.push(`${key}: ${result}`);
