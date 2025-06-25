@@ -1,0 +1,5 @@
+checkCommands:
+  fix: pnpm format
+  lint: pnpm lint
+  types: pnpm typecheck
+  test: pnpm test

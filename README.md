@@ -2,8 +2,6 @@
 
 A minimal, class-first validation library for TypeScript — inspired by Python’s Pydantic, but built for the TypeScript ecosystem. Define schema and logic together, with zero decorators, zero codegen, and native field access via classes.
 
-⸻
-
 ## ✨ Features
 
     •	Class-based API with native this.property field access
@@ -13,14 +11,10 @@ A minimal, class-first validation library for TypeScript — inspired by Python�
     •	Zero duplication — schema defines both runtime behavior and static types
     •	Lightweight and dependency-free
 
-⸻
-
 ## 📦 Installation
 
-NPM: `npm install @rybosome/type-a`
-PNPM: `pnpm add @rybosome/type-a`
-
-⸻
+    * NPM: `npm install @rybosome/type-a`
+    * PNPM: `pnpm add @rybosome/type-a`
 
 ## 🚀 Quick Start
 
@@ -80,8 +74,6 @@ if (badResult.errs) {
 }
 ```
 
-⸻
-
 ## 🔍 Comparison
 
 | Feature                | type-a | Zod | class-validator + transformer | ArkType | Typia |
@@ -92,5 +84,3 @@ if (badResult.errs) {
 | Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
 | Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
 | Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
-
-⸻
