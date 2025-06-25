@@ -17,7 +17,12 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
  */
 export interface FieldType<T extends Typeable> {
   value: T | undefined;
-  default?: T;
+  /**
+   * Optional default value applied when the caller omits the field or passes
+   * `undefined`. The default may be the value itself **or** a zero-arg function
+   * returning the value (useful for non-primitive or non-constant defaults).
+   */
+  default?: T | (() => T);
   is?: LogicalConstraint<T>;
 }
 
@@ -32,14 +37,14 @@ export interface FieldType<T extends Typeable> {
  * Overload #2 – without default value
  */
 export function Of<T extends Typeable>(opts: {
-  default: T;
+  default: T | (() => T);
   is?: LogicalConstraint<T>;
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<T>;
 }): FieldType<T>;
 export function Of<T extends Typeable>(opts: {
-  default?: T;
+  default?: T | (() => T);
   is?: LogicalConstraint<T>;
 }): FieldType<T> {
   return {
@@ -93,17 +98,21 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     ][]) {
       // Determine supplied value; fall back to default when omitted/undefined
       const supplied = (input as Record<string, unknown>)[key as string];
+      const def = (fieldDef as FieldType<any>).default;
       const value =
-        supplied !== undefined ? supplied : (fieldDef as FieldType<any>).default;
+        supplied !== undefined
+          ? supplied
+          : typeof def === "function"
+            ? (def as () => unknown)()
+            : def;
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
         value: value as ValueMap<F>[typeof key],
         is: fieldDef.is as
           | LogicalConstraint<ValueMap<F>[typeof key]>
           | undefined,
-        default: (fieldDef as FieldType<any>).default as
-          | ValueMap<F>[typeof key]
-          | undefined,
+        // Preserve the original default (value or callable) verbatim
+        default: fieldDef.default as FieldType<ValueMap<F>[typeof key]>["default"],
       };
 
       fields[key] = field;

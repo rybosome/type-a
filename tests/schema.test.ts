@@ -45,4 +45,43 @@ describe("BaseModel", () => {
     const u = new User({ id: "abc", age: 20 });
     expect(u.greet()).toBe("My ID is abc, and my account is active");
   });
+
+  /* -------------------------------------------------------------- */
+  /* Callable default handling                                      */
+  /* -------------------------------------------------------------- */
+
+  it("applies callable default exactly once per instance", () => {
+    let calls = 0;
+    const nextBool = () => {
+      calls += 1;
+      return calls % 2 === 1; // true on 1st, false on 2nd, …
+    };
+
+    class Model extends Schema.from({
+      flag: Of<boolean>({ default: nextBool }),
+    }) {}
+
+    const a = new Model({});
+    const b = new Model({});
+
+    expect(a.flag).toBe(true);   // first call (calls === 1)
+    expect(b.flag).toBe(false);  // second call (calls === 2)
+    expect(calls).toBe(2);
+  });
+
+  it("does not invoke callable default when caller supplies a value", () => {
+    let executed = false;
+    const fn = () => {
+      executed = true;
+      return "should-not-be-used";
+    };
+
+    class Model extends Schema.from({
+      name: Of<string>({ default: fn }),
+    }) {}
+
+    const m = new Model({ name: "provided" });
+    expect(m.name).toBe("provided");
+    expect(executed).toBe(false);
+  });
 });
