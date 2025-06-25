@@ -21,7 +21,10 @@ export type Result<V, E> =
  * collected error strings.
  */
 export type ErrLog<T> = {
-  [K in keyof T as T[K] extends (...args: any[]) => any ? never : K]?: string;
+  // Exclude function properties
+  [K in keyof T as T[K] extends (...args: never[]) => unknown
+    ? never
+    : K]?: string;
 } & {
   summarize(): string[];
 };
