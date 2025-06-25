@@ -10,7 +10,7 @@
     "class",
     "runtime"
   ],
-  "author": "Your Name",
+  "author": "Ryan Eiger",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

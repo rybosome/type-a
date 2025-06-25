@@ -1,2 +1,2 @@
-export * from "./base-model";
+export * from "./schema";
 export * from "./constraints";

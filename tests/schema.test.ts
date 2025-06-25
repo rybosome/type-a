@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { Schema, Field, isUUID, Min } from "@rybosome/type-a";
+import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
 
 describe("BaseModel", () => {
-  class User extends Schema.with({
-    id: Field<string>({ logical: isUUID }),
-    age: Field<number>({ logical: Min(18) }),
-    active: Field<boolean>({}),
+  class User extends Schema.from({
+    id: Of<string>({ is: aUUID }),
+    age: Of<number>({ is: atLeast(18) }),
+    active: Of<boolean>({}),
   }) {
     greet() {
       const accountStatus = this.active ? "active" : "inactive";
@@ -33,7 +33,7 @@ describe("BaseModel", () => {
 
     const errors = u.validate();
     expect(errors).toContain("id: Invalid UUID");
-    expect(errors).toContain("age: Must be >= 18");
+    expect(errors).toContain("age: 10 is not atLeast(18)");
   });
 
   it("serializes to JSON correctly", () => {

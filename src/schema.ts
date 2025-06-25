@@ -10,15 +10,15 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 
 export interface FieldType<T extends Typeable> {
   value: T | undefined;
-  logical?: LogicalConstraint<T>;
+  is?: LogicalConstraint<T>;
 }
 
-export function Field<T extends Typeable>(opts: {
-  logical?: LogicalConstraint<T>;
+export function Of<T extends Typeable>(opts: {
+  is?: LogicalConstraint<T>;
 }): FieldType<T> {
   return {
     value: undefined,
-    logical: opts.logical,
+    is: opts.is,
   };
 }
 
@@ -56,7 +56,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
         value,
-        logical: fieldDef.logical as
+        is: fieldDef.is as
           | LogicalConstraint<ValueMap<F>[typeof key]>
           | undefined,
       };
@@ -75,7 +75,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     this._fields = fields;
   }
 
-  static with<F extends Record<string, FieldType<any>>>(schema: F) {
+  static from<F extends Record<string, FieldType<any>>>(schema: F) {
     class ModelWithSchema extends Schema<F> {
       static _schema = schema;
     }
@@ -92,10 +92,10 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
     for (const key in schema) {
       const field = this._fields[key];
-      const logical = field.logical;
-      if (logical) {
+      const is = field.is;
+      if (is) {
         if (field.value !== undefined) {
-          const result = logical(field.value);
+          const result = is(field.value);
           if (result !== true) {
             errors.push(`${key}: ${result}`);
           }
