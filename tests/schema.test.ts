@@ -64,8 +64,8 @@ describe("BaseModel", () => {
     const a = new Model({});
     const b = new Model({});
 
-    expect(a.flag).toBe(true);   // first call (calls === 1)
-    expect(b.flag).toBe(false);  // second call (calls === 2)
+    expect(a.flag).toBe(true); // first call (calls === 1)
+    expect(b.flag).toBe(false); // second call (calls === 2)
     expect(calls).toBe(2);
   });
 
@@ -83,5 +83,34 @@ describe("BaseModel", () => {
     const m = new Model({ name: "provided" });
     expect(m.name).toBe("provided");
     expect(executed).toBe(false);
+  });
+
+  /* -------------------------------------------------------------- */
+  /* Composite validator handling                                   */
+  /* -------------------------------------------------------------- */
+
+  it("accepts a value when all composed validators pass", () => {
+    class Model extends Schema.from({
+      age: Of<number>({
+        is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")],
+      }),
+    }) {}
+
+    const m = new Model({ age: 12 });
+    expect(m.validate()).toEqual([]);
+  });
+
+  it("returns the first failing message when composed validators fail", () => {
+    const mustBeEven = (v: number) => (v % 2 === 0 ? true : "must be even");
+
+    class Model extends Schema.from({
+      age: Of<number>({ is: [atLeast(10), mustBeEven] }),
+    }) {}
+
+    const invalidLow = new Model({ age: 8 }); // fails atLeast(10) first
+    expect(invalidLow.validate()).toEqual(["age: 8 is not atLeast(10)"]);
+
+    const invalidOdd = new Model({ age: 11 }); // passes atLeast(10), fails even check
+    expect(invalidOdd.validate()).toEqual(["age: must be even"]);
   });
 });
