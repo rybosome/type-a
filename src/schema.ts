@@ -45,7 +45,7 @@ export interface FieldType<T extends Typeable> {
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<T> | LogicalConstraint<T>[];
-}): FieldType<T>;
+}): FieldType<T> & { default: T | (() => T) };
 export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T>;
@@ -75,10 +75,10 @@ type ValueMap<F extends Record<string, FieldType<any>>> = {
  */
 type InputValueMap<F extends Record<string, FieldType<any>>> = {
   // required when no default
-  [K in keyof F as F[K] extends { default?: any } ? never : K]: ValueMap<F>[K];
+  [K in keyof F as F[K] extends { default: any } ? never : K]: ValueMap<F>[K];
 } & {
   // optional when default present
-  [K in keyof F as F[K] extends { default?: any } ? K : never]?: ValueMap<F>[K];
+  [K in keyof F as F[K] extends { default: any } ? K : never]?: ValueMap<F>[K];
 };
 
 // --------------------
