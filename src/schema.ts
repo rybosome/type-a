@@ -36,6 +36,19 @@ export interface FieldType<T extends Typeable> {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Helper aliases used by the `Of<T>` overloads below.  
+ *  • `FieldWithDefault`  – `default` is **required** (present)  
+ *  • `FieldWithoutDefault` – `default` is **optional** and restricted to
+ *    `undefined`, making it *absent* for assignability checks.
+ */
+type FieldWithDefault<T extends Typeable> = FieldType<T> & {
+  default: T | (() => T);
+};
+type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default"> & {
+  default?: undefined;
+};
+
+/**
  * Create a field descriptor.
  *
  * Overload #1 – with default value
@@ -44,10 +57,10 @@ export interface FieldType<T extends Typeable> {
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>>;
-}): FieldType<T>;
+}): FieldWithDefault<T>;
 export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<NonNullable<T>>;
-}): FieldType<T>;
+}): FieldWithoutDefault<T>;
 export function Of<T extends Typeable>(opts: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>>;
