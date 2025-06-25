@@ -53,7 +53,9 @@ describe("BaseModel", () => {
   describe("optional & nullable fields", () => {
     class OptModel extends Schema.from({
       // explicitly allows undefined (still validated when present)
-      name: Of<string | undefined>({ is: (s) => (s.length > 0 ? true : "empty") }),
+      name: Of<string | undefined>({
+        is: (s) => (s.length > 0 ? true : "empty"),
+      }),
       // explicitly nullable – must be null OR a valid UUID
       pid: Of<string | null>({ is: aUUID }),
       // has default, therefore optional too
@@ -62,9 +64,9 @@ describe("BaseModel", () => {
 
     it("accepts omitted optional fields", () => {
       const m = new OptModel({ pid: null });
-      expect(m.enabled).toBe(true);        // default
-      expect(m.name).toBeUndefined();      // optional omitted
-      expect(m.pid).toBeNull();            // nullable
+      expect(m.enabled).toBe(true); // default
+      expect(m.name).toBeUndefined(); // optional omitted
+      expect(m.pid).toBeNull(); // nullable
     });
 
     it("validates non-nullish values only", () => {
@@ -98,8 +100,8 @@ describe("BaseModel", () => {
     const a = new Model({});
     const b = new Model({});
 
-    expect(a.flag).toBe(true);   // first call (calls === 1)
-    expect(b.flag).toBe(false);  // second call (calls === 2)
+    expect(a.flag).toBe(true); // first call (calls === 1)
+    expect(b.flag).toBe(false); // second call (calls === 2)
     expect(calls).toBe(2);
   });
 

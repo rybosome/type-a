@@ -17,6 +17,16 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
  * - `is`      – optional validation constraint
  */
 export interface FieldType<T extends Typeable> {
+  /**
+   * Compile-time marker that preserves the **exact** generic parameter `T`
+   * (including `undefined`) during conditional-type inference via
+   * `FieldType<infer V>`.
+   *
+   * The property is added with the value `undefined` by the `Of()` helper and
+   * is never used at runtime.
+   */
+  readonly __t: T;
+
   value: T | undefined;
   /**
    * Optional default value applied when the caller omits the field or passes
@@ -25,8 +35,8 @@ export interface FieldType<T extends Typeable> {
    */
   default?: T | (() => T);
   /**
-   * Validation constraint that will only be invoked when a *non-nullish*
-   * (neither `null` nor `undefined`) value is present.
+   * Validation constraint that will only be invoked when a non-nullish value is
+   * present (i.e. value is neither `null` nor `undefined`).
    */
   is?: LogicalConstraint<NonNullable<T>>;
 }
@@ -36,8 +46,8 @@ export interface FieldType<T extends Typeable> {
 /* ------------------------------------------------------------------ */
 
 /**
- * Helper aliases used by the `Of<T>` overloads below.  
- *  • `FieldWithDefault`  – `default` is **required** (present)  
+ * Helper aliases used by the `Of<T>` overloads below.
+ *  • `FieldWithDefault`  – `default` is **required** (present)
  *  • `FieldWithoutDefault` – `default` is **optional** and restricted to
  *    `undefined`, making it *absent* for assignability checks.
  */
@@ -71,17 +81,16 @@ export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T> {
   const base = {
+    __t: undefined as unknown as T,
     value: undefined as T | undefined,
     is: opts.is,
   };
 
   // Only attach the `default` property when the caller actually supplied one.
   if ("default" in opts && opts.default !== undefined) {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     return { ...base, default: opts.default } as FieldType<T>;
   }
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return base as FieldType<T>;
 }
 
@@ -162,12 +171,15 @@ export class Schema<F extends Record<string, FieldType<any>>> {
             : def;
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
+        __t: undefined as unknown as ValueMap<F>[typeof key],
         value: value as ValueMap<F>[typeof key],
         is: fieldDef.is as
           | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
           | undefined,
         // Preserve the original default (value or callable) verbatim
-        default: fieldDef.default as FieldType<ValueMap<F>[typeof key]>["default"],
+        default: fieldDef.default as FieldType<
+          ValueMap<F>[typeof key]
+        >["default"],
       };
 
       fields[key] = field;
@@ -224,7 +236,6 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
     // failure path – build ErrLog with undefined for each field first
     const errLog = Object.keys(this._schema).reduce((acc, key) => {
-      // initialise all expected keys
       (acc as Record<string, string | undefined>)[key] = undefined;
       return acc;
     }, {} as ErrLog<I>);
@@ -239,7 +250,6 @@ export class Schema<F extends Record<string, FieldType<any>>> {
       }
     }
 
-    // expose complete list of messages
     errLog.summarize = () => validationErrors.slice();
 
     return { val: undefined, errs: errLog };
