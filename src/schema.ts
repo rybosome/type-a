@@ -132,18 +132,19 @@ export class Schema<F extends Record<string, FieldType<any>>> {
         value: value as ValueMap<F>[typeof key],
         // Normalise `is` so `_fields` always stores a single function
         is: (() => {
-          const rawIs =
-            fieldDef.is as
-              | LogicalConstraint<ValueMap<F>[typeof key]>
-              | LogicalConstraint<ValueMap<F>[typeof key]>[]
-              | undefined;
+          const rawIs = fieldDef.is as
+            | LogicalConstraint<ValueMap<F>[typeof key]>
+            | LogicalConstraint<ValueMap<F>[typeof key]>[]
+            | undefined;
           if (Array.isArray(rawIs)) {
             return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
           }
           return rawIs;
         })(),
         // Preserve the original default (value or callable) verbatim
-        default: fieldDef.default as FieldType<ValueMap<F>[typeof key]>["default"],
+        default: fieldDef.default as FieldType<
+          ValueMap<F>[typeof key]
+        >["default"],
       };
 
       fields[key] = field;
