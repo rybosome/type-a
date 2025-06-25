@@ -40,7 +40,8 @@ export interface FieldType<T extends Typeable> {
  * Create a field descriptor.
  *
  * Overload #1 – with default value
- * Overload #2 – without default value
+ * Overload #2 – without default value (opts provided)
+ * Overload #3 – zero-argument, no default or constraints
  */
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
@@ -49,14 +50,15 @@ export function Of<T extends Typeable>(opts: {
 export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T>;
-export function Of<T extends Typeable>(opts: {
+export function Of<T extends Typeable>(): FieldType<T>;
+export function Of<T extends Typeable>(opts?: {
   default?: T | (() => T);
   is?: LogicalConstraint<T> | LogicalConstraint<T>[];
 }): FieldType<T> {
   return {
     value: undefined,
-    default: opts.default,
-    is: opts.is,
+    default: opts?.default,
+    is: opts?.is,
   };
 }
 
