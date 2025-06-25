@@ -1,4 +1,4 @@
-/ **
+/**
  * Generic result helper types.
  *
  *  Result - discriminated union carrying either a valid value (`val`) or an
