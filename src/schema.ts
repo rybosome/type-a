@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ErrLog, Result } from "./types/result";
 
 // --------------------
 // Primitive & Constraints
@@ -137,7 +138,57 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     return ModelWithSchema as {
       new (input: InputValueMap<F>): Schema<F> & ValueMap<F>;
       _schema: F;
+      /**
+       * Build a validated instance. Returns a `Result` where `val` is the
+       * successfully-constructed model (when validation passes) and `errs`
+       * is a populated `ErrLog` (when validation fails).
+       */
+      tryNew(
+        input: ValueMap<F>,
+      ): Result<Schema<F> & ValueMap<F>, ErrLog<ValueMap<F>>>;
     };
+  }
+
+  /**
+   * Static constructor with built-in validation and aggregated error
+   * reporting.
+   */
+  static tryNew<I extends Record<string, any>>(
+    this: {
+      new (input: I): Schema<any> & I;
+      _schema: Record<string, FieldType<any>>;
+    },
+    input: I,
+  ): Result<InstanceType<typeof this>, ErrLog<I>> {
+    const instance = new this(input);
+    const validationErrors = instance.validate();
+
+    if (validationErrors.length === 0) {
+      // success path
+      return { val: instance, errs: undefined };
+    }
+
+    // failure path – build ErrLog with undefined for each field first
+    const errLog = Object.keys(this._schema).reduce((acc, key) => {
+      // initialise all expected keys
+      (acc as Record<string, string | undefined>)[key] = undefined;
+      return acc;
+    }, {} as ErrLog<I>);
+
+    // populate messages parsed from "<key>: <message>" strings
+    for (const raw of validationErrors) {
+      const idx = raw.indexOf(": ");
+      if (idx !== -1) {
+        const key = raw.slice(0, idx);
+        const msg = raw.slice(idx + 2);
+        (errLog as Record<string, string | undefined>)[key] = msg;
+      }
+    }
+
+    // expose complete list of messages
+    errLog.summarize = () => validationErrors.slice();
+
+    return { val: undefined, errs: errLog };
   }
 
   validate(): string[] {
