@@ -3,7 +3,7 @@ name: Merge Checks
 on:
   pull_request:
     # Run for any branch targeting the default branch (main)
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-test:
