@@ -115,14 +115,11 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     }
 
     // failure path – build ErrLog with undefined for each field first
-    const errLog = Object.keys(this._schema).reduce(
-      (acc, key) => {
-        // initialise all expected keys
-        (acc as Record<string, string | undefined>)[key] = undefined;
-        return acc;
-      },
-      {} as ErrLog<I>,
-    );
+    const errLog = Object.keys(this._schema).reduce((acc, key) => {
+      // initialise all expected keys
+      (acc as Record<string, string | undefined>)[key] = undefined;
+      return acc;
+    }, {} as ErrLog<I>);
 
     // populate messages parsed from "<key>: <message>" strings
     for (const raw of validationErrors) {
