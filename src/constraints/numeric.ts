@@ -1,12 +1,11 @@
 import { LogicalConstraint } from "../schema";
 
 /* -------------------------------------------------------------------------- */
-/*  Range-style helpers that work for numbers *and* strings                   */
 /* -------------------------------------------------------------------------- */
 
 /**
- * val ≥ min  
- * • Numbers: numeric comparison (`val >= min`)  
+ * val ≥ min
+ * • Numbers: numeric comparison (`val >= min`)
  * • Strings: length comparison (`val.length >= min`)
  */
 export const atLeast =
@@ -24,8 +23,8 @@ export const atLeast =
   };
 
 /**
- * val ≤ max  
- * • Numbers: numeric comparison (`val <= max`)  
+ * val ≤ max
+ * • Numbers: numeric comparison (`val <= max`)
  * • Strings: length comparison (`val.length <= max`)
  */
 export const atMost =
@@ -62,8 +61,8 @@ export const lessThan =
     val < max ? true : `${val} is not lessThan(${max})`;
 
 /**
- * Inclusive/Exclusive range check.  
- * If `inclusive` is true (default):  min ≤ val ≤ max  
+ * Inclusive/Exclusive range check.
+ * If `inclusive` is true (default):  min ≤ val ≤ max
  * Otherwise:                          min <  val <  max
  */
 export const between =

@@ -84,7 +84,7 @@ describe("String validators", () => {
     expect(url("https://example.com")).toBe(true);
     expect(domain("example.com")).toBe(true);
     expect(ipAddress("192.168.0.1")).toBe(true);
-    expect(validJson("{\"a\":1}")).toBe(true);
+    expect(validJson('{"a":1}')).toBe(true);
     expect(dateIso("2023-06-25")).toBe(true);
   });
 

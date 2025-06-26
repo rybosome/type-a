@@ -2,7 +2,6 @@ import { LogicalConstraint } from "../schema";
 import { atLeast, atMost } from "./numeric";
 
 /* -------------------------------------------------------------------------- */
-/*  Basic Content Checks                                                      */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -55,9 +54,7 @@ export const notEqualTo =
 export const longerThan =
   (n: number): LogicalConstraint<string> =>
   (val) =>
-    val.length > n
-      ? true
-      : `length ${val.length} is not longerThan(${n})`;
+    val.length > n ? true : `length ${val.length} is not longerThan(${n})`;
 
 /**
  * val.length < n
@@ -65,9 +62,7 @@ export const longerThan =
 export const shorterThan =
   (n: number): LogicalConstraint<string> =>
   (val) =>
-    val.length < n
-      ? true
-      : `length ${val.length} is not shorterThan(${n})`;
+    val.length < n ? true : `length ${val.length} is not shorterThan(${n})`;
 
 /**
  * Alias of generic `atLeast`.  val.length ≥ min
@@ -85,9 +80,7 @@ export const maxLength = atMost;
 export const length =
   (n: number): LogicalConstraint<string> =>
   (val) =>
-    val.length === n
-      ? true
-      : `length ${val.length} must be exactly ${n}`;
+    val.length === n ? true : `length ${val.length} must be exactly ${n}`;
 
 /**
  * min ≤ val.length ≤ max  (inclusive)
@@ -263,7 +256,8 @@ export const titleCase: LogicalConstraint<string> = (val) => {
     .split(/\s+/)
     .filter(Boolean)
     .every(
-      (w) => w[0] === w[0]?.toUpperCase() && w.slice(1) === w.slice(1).toLowerCase(),
+      (w) =>
+        w[0] === w[0]?.toUpperCase() && w.slice(1) === w.slice(1).toLowerCase(),
     );
   return ok ? true : "must be title-case";
 };
