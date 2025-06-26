@@ -22,7 +22,7 @@ export interface FieldType<T extends Typeable> {
    * (including `undefined`) during conditional-type inference via
    * `FieldType<infer V>`.
    * This is a phantom property: it exists only at the type level and is never
-   * assigned or accessed at runtime.  
+   * assigned or accessed at runtime.
    * Although **required** in the type, every real object is produced via
    * a type-assertion (`as FieldType<T>`) so no property is emitted.
    */
