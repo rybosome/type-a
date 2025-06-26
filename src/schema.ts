@@ -63,10 +63,20 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
       fields[key] = field;
 
+      // Record the first observed runtime value on the static schema so
+      // Schema.jsonSchema() can infer accurate primitive types.
+      if (fieldDef.value === undefined && value !== undefined) {
+        (fieldDef as FieldType<ValueMap<F>[typeof key]>).value = value;
+      }
+
       Object.defineProperty(this, key, {
         get: () => field.value,
         set: (val: ValueMap<F>[typeof key]) => {
           field.value = val;
+
+          if (fieldDef.value === undefined && val !== undefined) {
+            (fieldDef as FieldType<ValueMap<F>[typeof key]>).value = val;
+          }
         },
         enumerable: true,
       });
