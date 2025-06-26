@@ -1,4 +1,4 @@
-import { LogicalConstraint } from "../src/schema";
+import { LogicalConstraint } from "../schema";
 
 /**
  * val >= min
@@ -15,6 +15,9 @@ export const atMost =
   (max: number): LogicalConstraint<number> =>
   (val) =>
     val <= max ? true : `${val} is not atMost(${max})`;
+
+// Alias that reads a little nicer for some usages
+export const noMoreThan = atMost;
 
 /**
  * val > min
@@ -53,5 +56,8 @@ export const negative: LogicalConstraint<number> = (val) =>
   val < 0 ? true : `${val} is not negative`;
 
 /** Integer check (no fractional component) */
-export const integer: LogicalConstraint<number> = (val) =>
-  Number.isInteger(val) ? true : `${val} is not an integer`);
+export const isInteger: LogicalConstraint<number> = (val) =>
+  Number.isInteger(val) ? true : `${val} is not an integer`;
+
+// Backwards-compat alias
+export const integer = isInteger;
