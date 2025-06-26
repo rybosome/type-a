@@ -1,11 +1,7 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
 import { Schema, Of } from "@rybosome/type-a";
 // Import internal utility types for compile-time assertions.
-import type {
-  OptionalKeys,
-  RequiredKeys,
-  InputValueMap,
-} from "../src/schema";
+import type { OptionalKeys, RequiredKeys, InputValueMap } from "../src/schema";
 
 /* ------------------------------------------------------------------ */
 /* Test suite                                                          */
