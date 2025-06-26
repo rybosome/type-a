@@ -1,12 +1,17 @@
 import { LogicalConstraint } from "../schema";
 
+/* -------------------------------------------------------------------------- */
+/*  Range-style helpers that work for numbers *and* strings                   */
+/* -------------------------------------------------------------------------- */
+
 /**
- * val >= min
+ * val ≥ min  
+ * • Numbers: numeric comparison (`val >= min`)  
+ * • Strings: length comparison (`val.length >= min`)
  */
-export function atLeast(min: number): LogicalConstraint<number>;
-export function atLeast(min: number): LogicalConstraint<string>;
-export function atLeast(min: number): LogicalConstraint<any> {
-  return (val: number | string) => {
+export const atLeast =
+  (min: number): LogicalConstraint<string | number> =>
+  (val) => {
     if (typeof val === "number") {
       return val >= min ? true : `${val} is not atLeast(${min})`;
     }
@@ -17,15 +22,15 @@ export function atLeast(min: number): LogicalConstraint<any> {
     }
     return "unsupported type for atLeast";
   };
-}
 
 /**
- * val <= max
+ * val ≤ max  
+ * • Numbers: numeric comparison (`val <= max`)  
+ * • Strings: length comparison (`val.length <= max`)
  */
-export function atMost(max: number): LogicalConstraint<number>;
-export function atMost(max: number): LogicalConstraint<string>;
-export function atMost(max: number): LogicalConstraint<any> {
-  return (val: number | string) => {
+export const atMost =
+  (max: number): LogicalConstraint<string | number> =>
+  (val) => {
     if (typeof val === "number") {
       return val <= max ? true : `${val} is not atMost(${max})`;
     }
@@ -36,30 +41,29 @@ export function atMost(max: number): LogicalConstraint<any> {
     }
     return "unsupported type for atMost";
   };
-}
 
-// Alias that reads a little nicer for some usages
+/** Alias that reads a little nicer for some usages */
 export const noMoreThan = atMost;
 
-/**
- * val > min
- */
+/* -------------------------------------------------------------------------- */
+/*  Pure numeric helpers                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** val > min */
 export const greaterThan =
   (min: number): LogicalConstraint<number> =>
   (val) =>
     val > min ? true : `${val} is not greaterThan(${min})`;
 
-/**
- * val < max
- */
+/** val < max */
 export const lessThan =
   (max: number): LogicalConstraint<number> =>
   (val) =>
     val < max ? true : `${val} is not lessThan(${max})`;
 
 /**
- * Inclusive/Exclusive range check.
- * If `inclusive` is true (default):  min ≤ val ≤ max
+ * Inclusive/Exclusive range check.  
+ * If `inclusive` is true (default):  min ≤ val ≤ max  
  * Otherwise:                          min <  val <  max
  */
 export const between =
@@ -83,5 +87,5 @@ export const negative: LogicalConstraint<number> = (val) =>
 export const isInteger: LogicalConstraint<number> = (val) =>
   Number.isInteger(val) ? true : `${val} is not an integer`;
 
-// Backwards-compat alias
+/* Backwards-compat alias */
 export const integer = isInteger;
