@@ -22,9 +22,11 @@ export interface FieldType<T extends Typeable> {
    * (including `undefined`) during conditional-type inference via
    * `FieldType<infer V>`.
    * This is a phantom property: it exists only at the type level and is never
-   * assigned or accessed at runtime.
+   * assigned or accessed at runtime.  
+   * Although **required** in the type, every real object is produced via
+   * a type-assertion (`as FieldType<T>`) so no property is emitted.
    */
-  readonly __t?: T;
+  readonly __t: T;
 
   value: T | undefined;
   /**
@@ -168,7 +170,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
             ? (def as () => unknown)()
             : def;
 
-      const field: FieldType<ValueMap<F>[typeof key]> = {
+      const field = {
         value: value as ValueMap<F>[typeof key],
         is: fieldDef.is as
           | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
@@ -177,7 +179,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
-      };
+      } as FieldType<ValueMap<F>[typeof key]>;
 
       fields[key] = field;
 
