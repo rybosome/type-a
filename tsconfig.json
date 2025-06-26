@@ -15,5 +15,5 @@
       "@rybosome/type-a": ["src/index.ts"]
     }
   },
-  "include": ["src", "tests"]
+  "include": ["src", "constraints", "tests"]
 }
