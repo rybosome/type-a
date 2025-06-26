@@ -44,7 +44,9 @@ export const between =
   (min: number, max: number, inclusive = true): LogicalConstraint<number> =>
   (val) => {
     const ok = inclusive ? val >= min && val <= max : val > min && val < max;
-    return ok ? true : `${val} is not${inclusive ? "" : " strictly"} between(${min}, ${max})`;
+    return ok
+      ? true
+      : `${val} is not${inclusive ? "" : " strictly"} between(${min}, ${max})`;
   };
 
 /** val > 0 */
