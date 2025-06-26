@@ -279,3 +279,9 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     return json;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Public utility-type exports                                        */
+/* ------------------------------------------------------------------ */
+
+export type { OptionalKeys, RequiredKeys, InputValueMap };
