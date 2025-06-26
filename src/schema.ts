@@ -113,4 +113,45 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     }
     return json;
   }
+
+  /**
+   * Returns a JSON-Schema Draft-07 representation of **this** schema
+   * by inferring primitive types from the first seen runtime values.
+   *  – string | number | boolean are mapped 1-to-1
+   *  – undefined (never assigned) defaults to "string"
+   *  – Nested `Schema` definitions are handled recursively.
+   */
+  static jsonSchema(): Record<string, unknown> {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const build = (def: Record<string, FieldType<any>>): any => {
+      const properties: Record<string, any> = {};
+      const required: string[] = [];
+
+      for (const [key, field] of Object.entries(def)) {
+        // If the field’s runtime value was ever set, use its JS typeof.
+        // Otherwise we conservatively default to "string".
+        let type: string = "string";
+        const runtimeVal = (field as FieldType<any>).value;
+        if (runtimeVal !== undefined) {
+          const jsType = typeof runtimeVal;
+          if (jsType === "string" || jsType === "number" || jsType === "boolean") {
+            type = jsType;
+          }
+        }
+
+        properties[key] = { type };
+        required.push(key);
+      }
+
+      return {
+        type: "object",
+        properties,
+        required,
+      };
+    };
+
+    // `this` is the concrete subclass with its own _schema
+    const cls = this as unknown as { _schema: Record<string, FieldType<any>> };
+    return build(cls._schema);
+  }
 }
