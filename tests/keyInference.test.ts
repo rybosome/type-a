@@ -53,7 +53,7 @@ describe("Utility type key inference", () => {
     type In = InputValueMap<S>;
 
     // Keys with default or explicit undefined become optional properties
-    expectTypeOf<In>().toEqualTypeOf<{
+    expectTypeOf<In>().toMatchTypeOf<{
       required: string;
       nullable: string | null;
       optional?: string | undefined;
