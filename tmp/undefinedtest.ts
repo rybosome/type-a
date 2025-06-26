@@ -1,2 +1,4 @@
-interface Foo { name?: string }
+interface Foo {
+  name?: string;
+}
 const a: Foo = { name: undefined };

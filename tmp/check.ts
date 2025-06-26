@@ -1,1 +1,1 @@
-import type { Of } from '../src/schema';
+import type { Of } from "../src/schema";
