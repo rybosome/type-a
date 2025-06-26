@@ -107,6 +107,7 @@ export const lengthBetween =
 
 /** ASCII (0-127) only */
 export const validAscii: LogicalConstraint<string> = (val) =>
+  // eslint-disable-next-line no-control-regex
   /^[\x00-\x7F]*$/.test(val) ? true : "must contain only ASCII characters";
 
 /** [A-Z a-z 0-9] one or more */
