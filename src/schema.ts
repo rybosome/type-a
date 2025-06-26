@@ -21,11 +21,10 @@ export interface FieldType<T extends Typeable> {
    * Compile-time marker that preserves the **exact** generic parameter `T`
    * (including `undefined`) during conditional-type inference via
    * `FieldType<infer V>`.
-   *
-   * The property is added with the value `undefined` by the `Of()` helper and
-   * is never used at runtime.
+   * This is a phantom property: it exists only at the type level and is never
+   * assigned or accessed at runtime.
    */
-  readonly __t: T;
+  readonly __t?: T;
 
   value: T | undefined;
   /**
@@ -81,7 +80,6 @@ export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<NonNullable<T>>;
 }): FieldType<T> {
   const base = {
-    __t: undefined as unknown as T,
     value: undefined as T | undefined,
     is: opts.is,
   };
@@ -171,7 +169,6 @@ export class Schema<F extends Record<string, FieldType<any>>> {
             : def;
 
       const field: FieldType<ValueMap<F>[typeof key]> = {
-        __t: undefined as unknown as ValueMap<F>[typeof key],
         value: value as ValueMap<F>[typeof key],
         is: fieldDef.is as
           | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
