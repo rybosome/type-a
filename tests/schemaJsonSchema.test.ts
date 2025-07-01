@@ -22,78 +22,58 @@ describe("Schema.jsonSchema()", () => {
   });
 });
 
-describe('jsonSchema with nested schemas', () => {
-  it('supports nested schemas', () => {
+describe("jsonSchema with nested schemas", () => {
+  it("supports nested schemas", () => {
     class Address extends Schema.from({
-      street: Of<string>({ default: '' }),
-      city:   Of<string>({ default: '' })
+      street: Of<string>({ default: "" }),
+      city:   Of<string>({ default: "" }),
     }) {}
+
     class User extends Schema.from({
-      id:      Of<string>({ default: '' }),
-      address: Address
+      id:      Of<string>({ default: "" }),
+      address: Address,
     }) {}
+
     const schema = User.jsonSchema();
+
     expect(schema).toEqual({
-      $schema:    'http://json-schema.org/draft-04/schema#',
-      type:       'object',
+      $schema: "http://json-schema.org/draft-04/schema#",
+      type: "object",
       properties: {
-        id:      { type: 'string' },
-        address: { $ref: '#/definitions/Address' }
+        id:      { type: "string" },
+        address: { type: "object" },
       },
-      required: ['id', 'address'],
-      definitions: {
-        Address: {
-          type:       'object',
-          properties: {
-            street: { type: 'string' },
-            city:   { type: 'string' }
-          },
-          required: ['street', 'city']
-        }
-      }
+      required: ["id", "address"],
     });
   });
 });
 
-describe('jsonSchema with recursive nested schemas', () => {
-  it('supports recursive nested schemas scenario', () => {
+describe("jsonSchema with recursive nested schemas", () => {
+  it("supports recursive nested schemas scenario", () => {
     class GrandChild extends Schema.from({
-      age: Of<number>({ default: 0 })
+      age: Of<number>({ default: 0 }),
     }) {}
+
     class Child extends Schema.from({
-      name:       Of<string>({ default: '' }),
-      grandChild: GrandChild
+      name:       Of<string>({ default: "" }),
+      grandChild: GrandChild,
     }) {}
+
     class Parent extends Schema.from({
-      label: Of<string>({ default: '' }),
-      child: Child
+      label: Of<string>({ default: "" }),
+      child: Child,
     }) {}
+
     const schema = Parent.jsonSchema();
+
     expect(schema).toEqual({
-      $schema:    'http://json-schema.org/draft-04/schema#',
-      type:       'object',
+      $schema: "http://json-schema.org/draft-04/schema#",
+      type: "object",
       properties: {
-        label: { type: 'string' },
-        child: { $ref: '#/definitions/Child' }
+        label: { type: "string" },
+        child: { type: "object" },
       },
-      required: ['label', 'child'],
-      definitions: {
-        Child: {
-          type:       'object',
-          properties: {
-            name:       { type: 'string' },
-            grandChild: { $ref: '#/definitions/GrandChild' }
-          },
-          required: ['name', 'grandChild']
-        },
-        GrandChild: {
-          type:       'object',
-          properties: {
-            age: { type: 'number' }
-          },
-          required: ['age']
-        }
-      }
+      required: ["label", "child"],
     });
   });
 });

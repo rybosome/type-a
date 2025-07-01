@@ -13,10 +13,16 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 export interface FieldType<T extends Typeable> {
   value: T | undefined;
   is?: LogicalConstraint<T>;
-  // Allow "object" so nested objects can be described.
   jsonType: "string" | "number" | "boolean" | "object";
 }
 
+// ---------------------------------------------------------------------------
+//  NEW - Helper types for nested schemas
+// ---------------------------------------------------------------------------
+type SchemaClass = { new (input: any): Schema<any>; _schema: Record<string, any> };
+type SchemaField = FieldType<any> | SchemaClass;
+
+// Keep Of<T> helper untouched
 export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<T>;
   default?: T;
@@ -36,26 +42,26 @@ export function Of<T extends Typeable>(opts: {
 // Schema and Model Types
 // --------------------
 
-type ValueMap<F extends Record<string, FieldType<any>>> = {
-  [K in keyof F]: F[K] extends FieldType<infer V> ? V : never;
+// Extract the runtime value type from either a primitive FieldType or a nested Schema.
+type ValueMap<F extends Record<string, SchemaField>> = {
+  [K in keyof F]: F[K] extends FieldType<infer V>
+    ? V
+    : F[K] extends SchemaClass
+      ? InstanceType<F[K]>
+      : never;
 };
 
 // --------------------
 // Schema
 // --------------------
 
-export class Schema<F extends Record<string, FieldType<any>>> {
-  // store backing fields
-  private readonly _fields: {
-    [K in keyof F]: FieldType<ValueMap<F>[K]>;
-  };
+export class Schema<F extends Record<string, SchemaField>> {
+  private readonly _fields: Record<string, FieldType<any>>;
 
   constructor(input: ValueMap<F>) {
     const schema = (this.constructor as unknown as { _schema: F })._schema;
 
-    const fields = {} as {
-      [K in keyof F]: FieldType<ValueMap<F>[K]>;
-    };
+    const fields: Record<string, FieldType<any>> = {};
 
     for (const [key, fieldDef] of Object.entries(schema) as [
       keyof F,
@@ -63,20 +69,31 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     ][]) {
       const value = input[key];
 
-      const field: FieldType<ValueMap<F>[typeof key]> = {
-        value,
-        is: fieldDef.is as
-          | LogicalConstraint<ValueMap<F>[typeof key]>
-          | undefined,
-        jsonType: fieldDef.jsonType,
-      };
+      // Primitive field definitions
+      if ((fieldDef as FieldType<any>).jsonType !== undefined) {
+        const def = fieldDef as FieldType<any>;
+        fields[key as string] = {
+          value,
+          is: def.is,
+          jsonType: def.jsonType,
+        };
+      } else {
+        // Nested schema – treat as plain object for validation / JSON-Schema purposes
+        fields[key as string] = {
+          // Nested objects are not limited to the Typeable set
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          value,
+          jsonType: "object",
+        } as FieldType<any>;
+      }
 
-      fields[key] = field;
+      const fieldRef = fields[key as string];
 
       Object.defineProperty(this, key, {
-        get: () => field.value,
-        set: (val: ValueMap<F>[typeof key]) => {
-          field.value = val;
+        get: () => fieldRef.value,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        set: (val: any) => {
+          fieldRef.value = val;
         },
         enumerable: true,
       });
@@ -85,14 +102,14 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     this._fields = fields;
   }
 
-  static from<F extends Record<string, FieldType<any>>>(schema: F) {
-    class ModelWithSchema extends Schema<F> {
+  static from<S extends Record<string, SchemaField>>(schema: S) {
+    class ModelWithSchema extends Schema<S> {
       static _schema = schema;
     }
 
     return ModelWithSchema as {
-      new (input: ValueMap<F>): Schema<F> & ValueMap<F>;
-      _schema: F;
+      new (input: ValueMap<S>): Schema<S> & ValueMap<S>;
+      _schema: S;
     };
   }
 
@@ -117,16 +134,17 @@ export class Schema<F extends Record<string, FieldType<any>>> {
   toJSON(): ValueMap<F> {
     const json = {} as ValueMap<F>;
     for (const key in this._fields) {
-      json[key] = this._fields[key].value as ValueMap<F>[typeof key];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      json[key] = this._fields[key].value as never;
     }
     return json;
   }
 
   /**
-   * Returns a JSON-Schema Draft-07 representation of **this** schema.
+   * Returns a JSON-Schema Draft-04 representation of **this** schema.
    */
   static jsonSchema(): Record<string, unknown> {
-    const cls = this as unknown as { _schema: Record<string, FieldType<any>> };
+    const cls = this as unknown as { _schema: Record<string, SchemaField> };
     return generateJsonSchema(cls._schema);
   }
 }
