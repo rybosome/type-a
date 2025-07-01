@@ -29,20 +29,20 @@ export interface FieldType<T extends Typeable> {
   readonly __t: T;
 
   value: T | undefined;
-  
+
   /**
    * Optional default value applied when the caller omits the field or passes
    * `undefined`. The default may be the value itself **or** a zero-arg function
    * returning the value (useful for non-primitive or non-constant defaults).
    */
   default?: T | (() => T);
-  
+
   /**
    * Optional validator(s). When an array is provided, every constraint is run
    * in order until the first failure (the returned string) or until all pass
    * (returns `true`).
    */
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NoNullable<T>>[];
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -74,24 +74,24 @@ type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
  * Overload #2 – without default value (opts provided)
  * Overload #3 – zero-argument, no default or constraints
  */
-export function Of<T extends Typeable>(opts: {
+export function Of<T extends Typeable>(opts?: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
-export function Of<T extends Typeable>(opts: {
+export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
-export function Of<T extends Typeable>(opts: {
+export function Of<T extends Typeable>(opts?: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T> {
   const base = {
     value: undefined as T | undefined,
-    is: opts.is,
+    is: opts?.is,
   };
 
   // Only attach the `default` property when the caller actually supplied one.
-  if ("default" in opts && opts.default !== undefined) {
+  if (opts && "default" in opts && opts.default !== undefined) {
     return { ...base, default: opts.default } as FieldType<T>;
   }
 
@@ -192,7 +192,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
       const field = {
         value: value as ValueMap<F>[typeof key],
-        
+
         // Normalise `is` so `_fields` always stores a single function
         is: (() => {
           const rawIs = fieldDef.is as
@@ -204,7 +204,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
           }
           return rawIs;
         })(),
-        
+
         // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
