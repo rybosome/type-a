@@ -150,7 +150,7 @@ export function Of<T extends Typeable>(opts?: {
 // Schema and Model Types
 // --------------------
 
-type Fields = Record<string, FieldType<Typeable>>;
+type Fields = Record<string, FieldType<any>>;
 
 type ValueType<F> = F extends { schemaClass: infer S }
   ? S extends SchemaClass
