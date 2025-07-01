@@ -16,7 +16,10 @@ import type {
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
 type SchemaClass = {
-  new (input: any): Schema<any>;
+  // The instance type is deliberately `any` to avoid nominal-type
+  // incompatibilities between different `Schema<…>` specialisations,
+  // whose private members would otherwise make them incomparable.
+  new (input: any): any;
   _schema: Fields;
 };
 
