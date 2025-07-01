@@ -1,33 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ErrLog, Result } from "./types/result";
+import type { ErrLog, LogicalConstraint, Result, Typeable } from "@src/types";
 
 // --------------------
-// Primitive & Constraints
+// FieldType
 // --------------------
-
-export type Typeable = string | number | boolean | null | undefined;
-
-export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 
 /**
  * A field description used by Schema.
- *
- * - `value`   – runtime value
- * - `default` – optional default applied when the caller omits the field
- * - `is`      – optional validation constraint
  */
 export interface FieldType<T extends Typeable> {
   /**
    * Compile-time marker that preserves the **exact** generic parameter `T`
-   * (including `undefined`) during conditional-type inference via
-   * `FieldType<infer V>`.
+   * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
+   * 
    * This is a phantom property: it exists only at the type level and is never
    * assigned or accessed at runtime.
-   * Although **required** in the type, every real object is produced via
-   * a type-assertion (`as FieldType<T>`) so no property is emitted.
+   * 
+   * Although **required** in the type, every real object is produced via a
+   * type-assertion (`as FieldType<T>`) so no property is emitted.
    */
   readonly __t: T;
 
+  /**
+   * The underlying value contained in the field.
+   */
   value: T | undefined;
 
   /**
@@ -58,6 +54,7 @@ export interface FieldType<T extends Typeable> {
 type FieldWithDefault<T extends Typeable> = FieldType<T> & {
   default: T | (() => T);
 };
+
 /**
  * Field descriptor *without* a default.
  *
@@ -102,17 +99,19 @@ export function Of<T extends Typeable>(opts?: {
 // Schema and Model Types
 // --------------------
 
-type ValueMap<F extends Record<string, FieldType<any>>> = {
+type Fields = Record<string, FieldType<Typeable>>;
+
+type ValueMap<F extends Fields> = {
   [K in keyof F]: F[K] extends FieldType<infer V> ? V : never;
 };
 
 /**
  * Keys that are optional in the constructor's input object.
  *
- *  • A key is optional when the field descriptor provides a `default`, _or_
- *  • the declared value type already allows `undefined`.
+ * A key is optional when the field descriptor provides a `default`, or the declared
+ * value type already allows `undefined`.
  */
-type OptionalKeys<F extends Record<string, FieldType<any>>> = {
+type OptionalKeys<F extends Fields> = {
   [K in keyof F]: F[K] extends { default: any }
     ? K
     : undefined extends ValueMap<F>[K]
@@ -121,10 +120,9 @@ type OptionalKeys<F extends Record<string, FieldType<any>>> = {
 }[keyof F];
 
 /**
- * Keys that **must** be provided in the constructor's input object.
- * (Simply the complement of `OptionalKeys`.)
+ * Keys that must be provided in the constructor's input object.
  */
-type RequiredKeys<F extends Record<string, FieldType<any>>> = {
+type RequiredKeys<F extends Fields> = {
   [K in keyof F]: F[K] extends { default: any }
     ? never
     : undefined extends ValueMap<F>[K]
@@ -137,7 +135,7 @@ type RequiredKeys<F extends Record<string, FieldType<any>>> = {
  *  • Keys in `RequiredKeys` are mandatory.
  *  • Keys in `OptionalKeys` may be omitted.
  */
-type InputValueMap<F extends Record<string, FieldType<any>>> = {
+type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: ValueMap<F>[K];
 } & {
   [K in OptionalKeys<F>]?: ValueMap<F>[K];
@@ -163,7 +161,10 @@ function composeConstraints<T extends Typeable>(
   };
 }
 
-export class Schema<F extends Record<string, FieldType<any>>> {
+/**
+ * A dataclass-style object with parsing, validation and rendering.
+ */
+export class Schema<F extends Fields> {
   // store backing fields
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
@@ -182,7 +183,7 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     ][]) {
       // Determine supplied value; fall back to default when omitted/undefined
       const supplied = (input as Record<string, unknown>)[key as string];
-      const def = (fieldDef as FieldType<any>).default;
+      const def = fieldDef.default;
       const value =
         supplied !== undefined
           ? supplied
@@ -248,10 +249,10 @@ export class Schema<F extends Record<string, FieldType<any>>> {
    * Static constructor with built-in validation and aggregated error
    * reporting.
    */
-  static tryNew<I extends Record<string, any>>(
+  static tryNew<I extends Fields>(
     this: {
       new (input: I): Schema<any> & I;
-      _schema: Record<string, FieldType<any>>;
+      _schema: Fields;
     },
     input: I,
   ): Result<InstanceType<typeof this>, ErrLog<I>> {
@@ -311,9 +312,3 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     return json;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Public utility-type exports                                        */
-/* ------------------------------------------------------------------ */
-
-export type { OptionalKeys, RequiredKeys, InputValueMap };

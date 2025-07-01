@@ -1,4 +1,4 @@
-import { LogicalConstraint } from "../schema";
+import { LogicalConstraint } from "@src/types";
 
 /**
  * Ensures a string has at least one character.

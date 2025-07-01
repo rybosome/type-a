@@ -1,4 +1,4 @@
-import { LogicalConstraint } from "../schema";
+import { LogicalConstraint } from "@src/types";
 
 /**
  * val >= min

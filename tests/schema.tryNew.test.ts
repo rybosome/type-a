@@ -1,3 +1,7 @@
+/**
+ * Tests the static `tryNew` schema class creation method.
+ */
+
 import { describe, it, expect } from "vitest";
 import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
 

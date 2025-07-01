@@ -12,7 +12,8 @@
     "types": ["vitest/globals"],
     "baseUrl": ".",
     "paths": {
-      "@rybosome/type-a": ["src/index.ts"]
+      "@rybosome/type-a": ["src/index.ts"],
+      "@src/*": ["src/*"]
     }
   },
   "include": ["src", "tests"]
