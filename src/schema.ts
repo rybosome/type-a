@@ -115,11 +115,19 @@ export function Of<T extends Typeable>(opts?: {
   /* Nested Schema overload – single class argument                 */
   /* -------------------------------------------------------------- */
   if (typeof opts === "function" && "_schema" in opts) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    return {
+    // The phantom `__t` key must exist on the object for the
+    // `FieldType` structural type to match.  We intentionally set it
+    // to `undefined as unknown` so nothing is emitted at runtime while
+    // still satisfying the compiler.
+    //
+    // Cast through `unknown` first to avoid the strict-property-
+    // initialisation error TS 2413 in “--strict” mode, then to
+    // `FieldType<any>` so callers see the correct compile-time shape.
+    return ({
+      __t: undefined,
       value: undefined,
       schemaClass: opts,
-    } as FieldType<any>;
+    } as unknown) as FieldType<any>;
   }
 
   /* -------------------------------------------------------------- */
