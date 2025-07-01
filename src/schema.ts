@@ -5,7 +5,7 @@ import type { ErrLog, Result } from "./types/result";
 // Primitive & Constraints
 // --------------------
 
-export type Typeable = string | number | boolean;
+export type Typeable = string | number | boolean | null | undefined;
 
 export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 
@@ -17,24 +17,55 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
  * - `is`      – optional validation constraint
  */
 export interface FieldType<T extends Typeable> {
+  /**
+   * Compile-time marker that preserves the **exact** generic parameter `T`
+   * (including `undefined`) during conditional-type inference via
+   * `FieldType<infer V>`.
+   * This is a phantom property: it exists only at the type level and is never
+   * assigned or accessed at runtime.
+   * Although **required** in the type, every real object is produced via
+   * a type-assertion (`as FieldType<T>`) so no property is emitted.
+   */
+  readonly __t: T;
+
   value: T | undefined;
+
   /**
    * Optional default value applied when the caller omits the field or passes
    * `undefined`. The default may be the value itself **or** a zero-arg function
    * returning the value (useful for non-primitive or non-constant defaults).
    */
   default?: T | (() => T);
+
   /**
    * Optional validator(s). When an array is provided, every constraint is run
    * in order until the first failure (the returned string) or until all pass
    * (returns `true`).
    */
-  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }
 
 /* ------------------------------------------------------------------ */
 /* Of                                                                 */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Helper aliases used by the `Of<T>` overloads below.
+ *  • `FieldWithDefault`  – `default` is **required** (present)
+ *  • `FieldWithoutDefault` – `default` is **optional** and restricted to
+ *    `undefined`, making it *absent* for assignability checks.
+ */
+type FieldWithDefault<T extends Typeable> = FieldType<T> & {
+  default: T | (() => T);
+};
+/**
+ * Field descriptor *without* a default.
+ *
+ * By omitting the `default` key completely, the conditional type used in
+ * `InputValueMap` (`F[K] extends { default: any }`) correctly recognises that
+ * this field lacks a default and may therefore be required.
+ */
+type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
 
 /**
  * Create a field descriptor.
@@ -43,23 +74,28 @@ export interface FieldType<T extends Typeable> {
  * Overload #2 – without default value (opts provided)
  * Overload #3 – zero-argument, no default or constraints
  */
-export function Of<T extends Typeable>(opts: {
+export function Of<T extends Typeable>(opts?: {
   default: T | (() => T);
-  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
-}): FieldType<T> & { default: T | (() => T) };
-export function Of<T extends Typeable>(opts: {
-  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
-}): FieldType<T>;
-export function Of<T extends Typeable>(): FieldType<T>;
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldWithDefault<T>;
+export function Of<T extends Typeable>(opts?: {
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldWithoutDefault<T>;
 export function Of<T extends Typeable>(opts?: {
   default?: T | (() => T);
-  is?: LogicalConstraint<T> | LogicalConstraint<T>[];
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T> {
-  return {
-    value: undefined,
-    default: opts?.default,
+  const base = {
+    value: undefined as T | undefined,
     is: opts?.is,
   };
+
+  // Only attach the `default` property when the caller actually supplied one.
+  if (opts && "default" in opts && opts.default !== undefined) {
+    return { ...base, default: opts.default } as FieldType<T>;
+  }
+
+  return base as FieldType<T>;
 }
 
 // --------------------
@@ -71,16 +107,40 @@ type ValueMap<F extends Record<string, FieldType<any>>> = {
 };
 
 /**
- * Compute constructor input map:
- * • Keys with an explicit default are optional.
- * • Keys without a default are required.
+ * Keys that are optional in the constructor's input object.
+ *
+ *  • A key is optional when the field descriptor provides a `default`, _or_
+ *  • the declared value type already allows `undefined`.
+ */
+type OptionalKeys<F extends Record<string, FieldType<any>>> = {
+  [K in keyof F]: F[K] extends { default: any }
+    ? K
+    : undefined extends ValueMap<F>[K]
+      ? K
+      : never;
+}[keyof F];
+
+/**
+ * Keys that **must** be provided in the constructor's input object.
+ * (Simply the complement of `OptionalKeys`.)
+ */
+type RequiredKeys<F extends Record<string, FieldType<any>>> = {
+  [K in keyof F]: F[K] extends { default: any }
+    ? never
+    : undefined extends ValueMap<F>[K]
+      ? never
+      : K;
+}[keyof F];
+
+/**
+ * Constructor input map:
+ *  • Keys in `RequiredKeys` are mandatory.
+ *  • Keys in `OptionalKeys` may be omitted.
  */
 type InputValueMap<F extends Record<string, FieldType<any>>> = {
-  // required when no default
-  [K in keyof F as F[K] extends { default: any } ? never : K]: ValueMap<F>[K];
+  [K in RequiredKeys<F>]: ValueMap<F>[K];
 } & {
-  // optional when default present
-  [K in keyof F as F[K] extends { default: any } ? K : never]?: ValueMap<F>[K];
+  [K in OptionalKeys<F>]?: ValueMap<F>[K];
 };
 
 // --------------------
@@ -130,24 +190,26 @@ export class Schema<F extends Record<string, FieldType<any>>> {
             ? (def as () => unknown)()
             : def;
 
-      const field: FieldType<ValueMap<F>[typeof key]> = {
+      const field = {
         value: value as ValueMap<F>[typeof key],
+
         // Normalise `is` so `_fields` always stores a single function
         is: (() => {
           const rawIs = fieldDef.is as
-            | LogicalConstraint<ValueMap<F>[typeof key]>
-            | LogicalConstraint<ValueMap<F>[typeof key]>[]
+            | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
+            | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>[]
             | undefined;
           if (Array.isArray(rawIs)) {
             return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
           }
           return rawIs;
         })(),
+
         // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
-      };
+      } as FieldType<ValueMap<F>[typeof key]>;
 
       fields[key] = field;
 
@@ -203,7 +265,6 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
     // failure path – build ErrLog with undefined for each field first
     const errLog = Object.keys(this._schema).reduce((acc, key) => {
-      // initialise all expected keys
       (acc as Record<string, string | undefined>)[key] = undefined;
       return acc;
     }, {} as ErrLog<I>);
@@ -218,7 +279,6 @@ export class Schema<F extends Record<string, FieldType<any>>> {
       }
     }
 
-    // expose complete list of messages
     errLog.summarize = () => validationErrors.slice();
 
     return { val: undefined, errs: errLog };
@@ -234,8 +294,8 @@ export class Schema<F extends Record<string, FieldType<any>>> {
       // Cast `is` so we have a stable, callable signature
       const is = field.is as ((val: unknown) => true | string) | undefined;
 
-      if (is && field.value !== undefined) {
-        const result = is(field.value);
+      if (is && field.value !== undefined && field.value !== null) {
+        const result = is(field.value as NonNullable<typeof field.value>);
         if (result !== true) errors.push(`${key}: ${result}`);
       }
     }
@@ -251,3 +311,9 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     return json;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Public utility-type exports                                        */
+/* ------------------------------------------------------------------ */
+
+export type { OptionalKeys, RequiredKeys, InputValueMap };

@@ -47,6 +47,42 @@ describe("BaseModel", () => {
   });
 
   /* -------------------------------------------------------------- */
+  /* Optional / Nullable support                                    */
+  /* -------------------------------------------------------------- */
+
+  describe("optional & nullable fields", () => {
+    class OptModel extends Schema.from({
+      // explicitly allows undefined (still validated when present)
+      name: Of<string | undefined>({
+        is: (s) => (s.length > 0 ? true : "empty"),
+      }),
+      // explicitly nullable – must be null OR a valid UUID
+      pid: Of<string | null>({ is: aUUID }),
+      // has default, therefore optional too
+      enabled: Of<boolean>({ default: true }),
+    }) {}
+
+    it("accepts omitted optional fields", () => {
+      const m = new OptModel({ pid: null });
+      expect(m.enabled).toBe(true); // default
+      expect(m.name).toBeUndefined(); // optional omitted
+      expect(m.pid).toBeNull(); // nullable
+    });
+
+    it("validates non-nullish values only", () => {
+      const bad = new OptModel({ name: "", pid: "bad-uuid" });
+      const errs = bad.validate();
+      expect(errs).toContain("name: empty");
+      expect(errs).toContain("pid: Invalid UUID");
+    });
+
+    it("skips validation when value is null or undefined", () => {
+      const ok = new OptModel({ name: undefined, pid: null });
+      expect(ok.validate()).toHaveLength(0);
+    });
+  });
+
+  /* -------------------------------------------------------------- */
   /* Callable default handling                                      */
   /* -------------------------------------------------------------- */
 
