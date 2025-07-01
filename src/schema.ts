@@ -29,17 +29,20 @@ export interface FieldType<T extends Typeable> {
   readonly __t: T;
 
   value: T | undefined;
+  
   /**
    * Optional default value applied when the caller omits the field or passes
    * `undefined`. The default may be the value itself **or** a zero-arg function
    * returning the value (useful for non-primitive or non-constant defaults).
    */
   default?: T | (() => T);
+  
   /**
-   * Validation constraint that will only be invoked when a non-nullish value is
-   * present (i.e. value is neither `null` nor `undefined`).
+   * Optional validator(s). When an array is provided, every constraint is run
+   * in order until the first failure (the returned string) or until all pass
+   * (returns `true`).
    */
-  is?: LogicalConstraint<NonNullable<T>>;
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NoNullable<T>>[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -68,18 +71,19 @@ type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
  * Create a field descriptor.
  *
  * Overload #1 – with default value
- * Overload #2 – without default value
+ * Overload #2 – without default value (opts provided)
+ * Overload #3 – zero-argument, no default or constraints
  */
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>>;
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
 export function Of<T extends Typeable>(opts: {
-  is?: LogicalConstraint<NonNullable<T>>;
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
 export function Of<T extends Typeable>(opts: {
   default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>>;
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T> {
   const base = {
     value: undefined as T | undefined,
@@ -143,6 +147,22 @@ type InputValueMap<F extends Record<string, FieldType<any>>> = {
 // Schema
 // --------------------
 
+/**
+ * Combine several constraints into one.  Runs each in sequence and returns the
+ * first non-`true` result (an error string) or `true` when all pass.
+ */
+function composeConstraints<T extends Typeable>(
+  constraints: LogicalConstraint<T>[],
+): LogicalConstraint<T> {
+  return (val: T) => {
+    for (const c of constraints) {
+      const res = c(val);
+      if (res !== true) return res;
+    }
+    return true;
+  };
+}
+
 export class Schema<F extends Record<string, FieldType<any>>> {
   // store backing fields
   private readonly _fields: {
@@ -172,9 +192,19 @@ export class Schema<F extends Record<string, FieldType<any>>> {
 
       const field = {
         value: value as ValueMap<F>[typeof key],
-        is: fieldDef.is as
-          | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
-          | undefined,
+        
+        // Normalise `is` so `_fields` always stores a single function
+        is: (() => {
+          const rawIs = fieldDef.is as
+            | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
+            | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>[]
+            | undefined;
+          if (Array.isArray(rawIs)) {
+            return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
+          }
+          return rawIs;
+        })(),
+        
         // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
@@ -259,8 +289,11 @@ export class Schema<F extends Record<string, FieldType<any>>> {
     const errors: string[] = [];
 
     for (const key in schema) {
-      const field = this._fields[key];
-      const is = field.is;
+      const field = this._fields[key as keyof F];
+
+      // Cast `is` so we have a stable, callable signature
+      const is = field.is as ((val: unknown) => true | string) | undefined;
+
       if (is && field.value !== undefined && field.value !== null) {
         const result = is(field.value as NonNullable<typeof field.value>);
         if (result !== true) errors.push(`${key}: ${result}`);
