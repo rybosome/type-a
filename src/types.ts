@@ -1,7 +1,27 @@
 /**
  * The subset of types which can be used in a schema field.
+ * – Extended with generic `object` to allow nested {@link Schema} instances.
  */
-export type Typeable = string | number | boolean | null | undefined;
+export type Typeable = string | number | boolean | null | undefined | object;
+
+/* ------------------------------------------------------------------ */
+/* NEW: helpers for nested Schema classes                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Extract the *constructed* (output) type of a Schema class.
+ *
+ *   class User extends Schema<…> {}
+ *   type UserModel = OutputOf<typeof User>;   //  → User & ValueMap<…>
+ */
+export type OutputOf<S> = S extends new (...args: any[]) => infer O ? O : never;
+
+/**
+ * Extract the *constructor-input* (raw value map) type of a Schema class.
+ *
+ *   type RawUser = InputOf<typeof User>;      //  → InputValueMap<…>
+ */
+export type InputOf<S> = S extends new (input: infer I) => any ? I : never;
 
 /**
  * A constraint over a Typeable value indicating that it must adhere to the given

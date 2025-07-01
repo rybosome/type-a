@@ -1,5 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ErrLog, LogicalConstraint, Result, Typeable } from "@src/types";
+import type {
+  ErrLog,
+  InputOf,
+  LogicalConstraint,
+  OutputOf,
+  Result,
+  Typeable,
+} from "@src/types";
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Run-time shape of a Schema class (produced by {@link Schema.from}).
+ */
+type SchemaClass = {
+  new (input: any): Schema<any>;
+  _schema: Fields;
+};
 
 // --------------------
 // FieldType
@@ -39,6 +58,12 @@ export interface FieldType<T extends Typeable> {
    * (returns `true`).
    */
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+
+  /**
+   * Optional nested Schema class. When present this field is automatically
+   * instantiated, validated and serialised recursively.
+   */
+  schemaClass?: SchemaClass;
 }
 
 /* ------------------------------------------------------------------ */
@@ -69,7 +94,7 @@ type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
  *
  * Overload #1 – with default value
  * Overload #2 – without default value (opts provided)
- * Overload #3 – zero-argument, no default or constraints
+ * Overload #3 – nested Schema class
  */
 export function Of<T extends Typeable>(opts?: {
   default: T | (() => T);
@@ -78,10 +103,28 @@ export function Of<T extends Typeable>(opts?: {
 export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
+// #3 – nested Schema class
+export function Of<S extends SchemaClass>(
+  schemaClass: S,
+): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
 export function Of<T extends Typeable>(opts?: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T> {
+  /* -------------------------------------------------------------- */
+  /* Nested Schema overload – single class argument                 */
+  /* -------------------------------------------------------------- */
+  if (typeof opts === "function" && "_schema" in opts) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      value: undefined,
+      schemaClass: opts,
+    } as FieldType<any>;
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Primitive/flat field handling                                  */
+  /* -------------------------------------------------------------- */
   const base = {
     value: undefined as T | undefined,
     is: opts?.is,
@@ -101,9 +144,15 @@ export function Of<T extends Typeable>(opts?: {
 
 type Fields = Record<string, FieldType<Typeable>>;
 
-type ValueMap<F extends Fields> = {
-  [K in keyof F]: F[K] extends FieldType<infer V> ? V : never;
-};
+type ValueType<F> = F extends { schemaClass: infer S }
+  ? S extends SchemaClass
+    ? OutputOf<S>
+    : never
+  : F extends FieldType<infer V>
+    ? V
+    : never;
+
+type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
 
 /**
  * Keys that are optional in the constructor's input object.
@@ -135,10 +184,16 @@ type RequiredKeys<F extends Fields> = {
  *  • Keys in `RequiredKeys` are mandatory.
  *  • Keys in `OptionalKeys` may be omitted.
  */
+type InputType<F> = F extends { schemaClass: infer S }
+  ? S extends SchemaClass
+    ? InputOf<S>
+    : never
+  : ValueType<F>;
+
 type InputValueMap<F extends Fields> = {
-  [K in RequiredKeys<F>]: ValueMap<F>[K];
+  [K in RequiredKeys<F>]: InputType<F[K]>;
 } & {
-  [K in OptionalKeys<F>]?: ValueMap<F>[K];
+  [K in OptionalKeys<F>]?: InputType<F[K]>;
 };
 
 // --------------------
@@ -191,8 +246,15 @@ export class Schema<F extends Fields> {
             ? (def as () => unknown)()
             : def;
 
+      // Handle nested Schema instantiation when necessary
+      const nestedValue = (() => {
+        if (fieldDef.schemaClass == null || value === undefined) return value;
+        const Ctor = fieldDef.schemaClass;
+        return value instanceof Ctor ? value : new Ctor(value as any);
+      })();
+
       const field = {
-        value: value as ValueMap<F>[typeof key],
+        value: nestedValue as ValueMap<F>[typeof key],
 
         // Normalise `is` so `_fields` always stores a single function
         is: (() => {
@@ -292,6 +354,14 @@ export class Schema<F extends Fields> {
     for (const key in schema) {
       const field = this._fields[key as keyof F];
 
+      /* ---------------------------------------------------------- */
+      /* Recurse into nested Schemas                                */
+      /* ---------------------------------------------------------- */
+      if (field.schemaClass && field.value != null) {
+        const nestedErrors = (field.value as Schema<any>).validate();
+        for (const msg of nestedErrors) errors.push(`${key}.${msg}`);
+      }
+
       // Cast `is` so we have a stable, callable signature
       const is = field.is as ((val: unknown) => true | string) | undefined;
 
@@ -307,7 +377,10 @@ export class Schema<F extends Fields> {
   toJSON(): ValueMap<F> {
     const json = {} as ValueMap<F>;
     for (const key in this._fields) {
-      json[key] = this._fields[key].value as ValueMap<F>[typeof key];
+      const field = this._fields[key];
+      json[key] = field.schemaClass && field.value != null
+        ? ((field.value as Schema<any>).toJSON() as any)
+        : (field.value as ValueMap<F>[typeof key]);
     }
     return json;
   }
