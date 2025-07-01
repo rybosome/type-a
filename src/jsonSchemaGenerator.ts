@@ -12,7 +12,8 @@ export function generateJsonSchema(metadata: Metadata): Record<string, unknown> 
   }
 
   return {
-    $schema: "http://json-schema.org/draft-07/schema#",
+    // Use JSON-Schema Draft-04
+    $schema: "http://json-schema.org/draft-04/schema#",
     type: "object",
     properties,
     required,

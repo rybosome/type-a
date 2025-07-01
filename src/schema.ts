@@ -13,7 +13,8 @@ export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
 export interface FieldType<T extends Typeable> {
   value: T | undefined;
   is?: LogicalConstraint<T>;
-  jsonType: "string" | "number" | "boolean";
+  // Allow "object" so nested objects can be described.
+  jsonType: "string" | "number" | "boolean" | "object";
 }
 
 export function Of<T extends Typeable>(opts: {
