@@ -26,11 +26,11 @@ describe("jsonSchema with nested schemas", () => {
   it("supports nested schemas", () => {
     class Address extends Schema.from({
       street: Of<string>({ default: "" }),
-      city:   Of<string>({ default: "" }),
+      city: Of<string>({ default: "" }),
     }) {}
 
     class User extends Schema.from({
-      id:      Of<string>({ default: "" }),
+      id: Of<string>({ default: "" }),
       address: Address,
     }) {}
 
@@ -40,7 +40,7 @@ describe("jsonSchema with nested schemas", () => {
       $schema: "http://json-schema.org/draft-04/schema#",
       type: "object",
       properties: {
-        id:      { type: "string" },
+        id: { type: "string" },
         address: { type: "object" },
       },
       required: ["id", "address"],
@@ -55,7 +55,7 @@ describe("jsonSchema with recursive nested schemas", () => {
     }) {}
 
     class Child extends Schema.from({
-      name:       Of<string>({ default: "" }),
+      name: Of<string>({ default: "" }),
       grandChild: GrandChild,
     }) {}
 

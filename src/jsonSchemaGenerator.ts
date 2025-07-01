@@ -7,7 +7,9 @@ type Metadata = Record<string, FieldType<any> | SchemaConstructor>;
 const isSchema = (val: unknown): val is SchemaConstructor =>
   typeof val === "function" && "_schema" in (val as object);
 
-export function generateJsonSchema(metadata: Metadata): Record<string, unknown> {
+export function generateJsonSchema(
+  metadata: Metadata,
+): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
 

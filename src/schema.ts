@@ -19,7 +19,10 @@ export interface FieldType<T extends Typeable> {
 // ---------------------------------------------------------------------------
 //  NEW - Helper types for nested schemas
 // ---------------------------------------------------------------------------
-type SchemaClass = { new (input: any): Schema<any>; _schema: Record<string, any> };
+type SchemaClass = {
+  new (input: any): Schema<any>;
+  _schema: Record<string, any>;
+};
 type SchemaField = FieldType<any> | SchemaClass;
 
 // Keep Of<T> helper untouched
@@ -81,7 +84,7 @@ export class Schema<F extends Record<string, SchemaField>> {
         // Nested schema – treat as plain object for validation / JSON-Schema purposes
         fields[key as string] = {
           // Nested objects are not limited to the Typeable set
-           
+
           value,
           jsonType: "object",
         } as FieldType<any>;
@@ -91,7 +94,7 @@ export class Schema<F extends Record<string, SchemaField>> {
 
       Object.defineProperty(this, key, {
         get: () => fieldRef.value,
-         
+
         set: (val: any) => {
           fieldRef.value = val;
         },
