@@ -110,6 +110,10 @@ export class Schema<F extends Record<string, SchemaField>> {
     return ModelWithSchema as {
       new (input: ValueMap<S>): Schema<S> & ValueMap<S>;
       _schema: S;
+      /**
+       * Returns a JSON-Schema Draft-04 representation of **this** schema.
+       */
+      jsonSchema(): Record<string, unknown>;
     };
   }
 
@@ -132,12 +136,13 @@ export class Schema<F extends Record<string, SchemaField>> {
   }
 
   toJSON(): ValueMap<F> {
-    const json = {} as ValueMap<F>;
+    // Use a mutatable intermediate to avoid excess-index errors,
+    // then cast to the expected strongly-typed shape.
+    const json: any = {};
     for (const key in this._fields) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      json[key] = this._fields[key].value as never;
+      json[key] = this._fields[key].value;
     }
-    return json;
+    return json as ValueMap<F>;
   }
 
   /**
