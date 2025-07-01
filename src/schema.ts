@@ -81,7 +81,7 @@ export class Schema<F extends Record<string, SchemaField>> {
         // Nested schema – treat as plain object for validation / JSON-Schema purposes
         fields[key as string] = {
           // Nested objects are not limited to the Typeable set
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           value,
           jsonType: "object",
         } as FieldType<any>;
@@ -91,7 +91,7 @@ export class Schema<F extends Record<string, SchemaField>> {
 
       Object.defineProperty(this, key, {
         get: () => fieldRef.value,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         set: (val: any) => {
           fieldRef.value = val;
         },

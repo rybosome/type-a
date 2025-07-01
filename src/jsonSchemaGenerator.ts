@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FieldType } from "./schema";
 
 type SchemaConstructor = { _schema: unknown };
