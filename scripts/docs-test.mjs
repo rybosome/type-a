@@ -161,7 +161,7 @@ function run(cmd) {
     try {
       await fs.access(DOCS_DIR);
     } catch {
-      console.warn("No docs directory found – skipping docs tests.");
+      console.warn("No docs directory found - skipping docs tests.");
       process.exit(0);
     }
 
@@ -210,7 +210,7 @@ function run(cmd) {
     run(`pnpm exec vitest run --config ${vitestConfigPath}`);
 
     // Success.
-    console.log("Docs tests passed ✓");
+    console.log("Docs tests passed");
   } catch (err) {
     console.error(
       "Docs tests failed:",
