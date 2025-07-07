@@ -149,4 +149,71 @@ describe("Schema", () => {
       expect(invalidOdd.validate()).toEqual(["age: must be even"]);
     });
   });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Literal union type support                                            */
+  /* ---------------------------------------------------------------------- */
+
+  describe("literal union type support", () => {
+    /*
+     * Define a union of string literals.  At compile-time only the exact
+     * three literals below are permitted.
+     */
+    type Color = "red" | "green" | "blue";
+
+    /*
+     * Schema under test.  No custom validator is provided – we rely on the
+     * library's ability to preserve the literal union information and expose
+     * it via the generated constructor type.
+     */
+    class Marker extends Schema.from({
+      color: Of<Color>(),
+      scented: Of<boolean>(),
+    }) {}
+
+    it("constructs with any allowed literal value and preserves it exactly", () => {
+      const palette: Color[] = ["red", "green", "blue"];
+
+      for (const c of palette) {
+        const m = new Marker({ color: c, scented: false });
+        expect(m.color).toBe(c);
+        expect(m.scented).toBe(false);
+      }
+    });
+
+    /* ------------------------------------------------------------------ */
+    /*  Compile-time expectations (invalid literals)                      */
+    /* ------------------------------------------------------------------ */
+
+    // Each arrow-function wrapper below is *never executed* at runtime.  It
+    // exists solely so the TypeScript compiler can verify that the provided
+    // value does *not* satisfy the declared union.  The accompanying
+    // `@ts-expect-error` assertions enforce that the call fails to type-check.
+
+    // ---- Invalid literal string ---------------------------------------
+
+    // @ts-expect-error – "yellow" is not part of the Color union
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    () => new Marker({ color: "yellow", scented: true });
+
+    // ---- Invalid primitive types --------------------------------------
+
+    // @ts-expect-error – number is not assignable to Color
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    () => new Marker({ color: 123, scented: true });
+
+    // @ts-expect-error – null is not assignable to Color
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    () => new Marker({ color: null, scented: true });
+
+    // ---- Boolean field validations ------------------------------------
+
+    // @ts-expect-error – "yes" is not a boolean
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    () => new Marker({ color: "red", scented: "yes" });
+
+    // @ts-expect-error – 0 is not a boolean
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    () => new Marker({ color: "blue", scented: 0 });
+  });
 });
