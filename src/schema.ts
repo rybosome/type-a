@@ -34,10 +34,10 @@ export interface FieldType<T extends Typeable> {
   /**
    * Compile-time marker that preserves the **exact** generic parameter `T`
    * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
-   * 
+   *
    * This is a phantom property: it exists only at the type level and is never
    * assigned or accessed at runtime.
-   * 
+   *
    * Although **required** in the type, every real object is produced via a
    * type-assertion (`as FieldType<T>`) so no property is emitted.
    */
@@ -126,11 +126,11 @@ export function Of<T extends Typeable>(opts?: {
     // Cast through `unknown` first to avoid the strict-property-
     // initialisation error TS 2413 in “--strict” mode, then to
     // `FieldType<any>` so callers see the correct compile-time shape.
-    return ({
+    return {
       __t: undefined,
       value: undefined,
       schemaClass: opts,
-    } as unknown) as FieldType<any>;
+    } as unknown as FieldType<any>;
   }
 
   /* -------------------------------------------------------------- */
@@ -283,6 +283,11 @@ export class Schema<F extends Fields> {
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
+
+        // Preserve nested SchemaClass sentinel so `validate()` and `toJSON()`
+        // can recurse.  When absent we deliberately omit the key so the
+        // resulting object remains minimal for primitive fields.
+        ...(fieldDef.schemaClass ? { schemaClass: fieldDef.schemaClass } : {}),
       } as FieldType<ValueMap<F>[typeof key]>;
 
       fields[key] = field;
@@ -389,9 +394,10 @@ export class Schema<F extends Fields> {
     const json = {} as ValueMap<F>;
     for (const key in this._fields) {
       const field = this._fields[key];
-      json[key] = field.schemaClass && field.value != null
-        ? ((field.value as Schema<any>).toJSON() as any)
-        : (field.value as ValueMap<F>[typeof key]);
+      json[key] =
+        field.schemaClass && field.value != null
+          ? ((field.value as Schema<any>).toJSON() as any)
+          : (field.value as ValueMap<F>[typeof key]);
     }
     return json;
   }

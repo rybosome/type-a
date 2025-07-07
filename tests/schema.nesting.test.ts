@@ -70,7 +70,16 @@ describe("Schema – nesting", () => {
   }) {}
 
   class Account extends Schema.from({
-    owner: Of<User>(),
+    // Use the **class** overload of `Of` so the nested value can be provided
+    // either as a raw object *or* an already-constructed `User` instance.
+    //
+    // The generic (`Of<User>()`) variant is intentionally **not** used here
+    // because it describes a *plain object field* whose value must already be
+    // a `User` instance. That variant is useful when you genuinely want to
+    // store an existing model, but for nested-schema construction we need the
+    // special overload that injects the `schemaClass` sentinel so the Schema
+    // constructor knows to recurse.
+    owner: Of(User),
     employer: Of(Company),
   }) {}
 

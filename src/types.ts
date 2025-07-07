@@ -8,6 +8,7 @@ export type Typeable = string | number | boolean | null | undefined | object;
 /* NEW: helpers for nested Schema classes                              */
 /* ------------------------------------------------------------------ */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Extract the *constructed* (output) type of a Schema class.
  *
