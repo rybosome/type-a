@@ -6,13 +6,10 @@ import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
  * Tests for arbitrarily-nested schema support.
  */
 
-describe("Schema – nesting", () => {
-  /* ------------------------------------------------------------------ */
-  /* Single-level nesting                                               */
-  /* ------------------------------------------------------------------ */
+describe("Schema nesting", () => {
   class Address extends Schema.from({
     firstLine: Of<string>({ is: nonEmpty }),
-    secondLine: Of<string | undefined>(), // optional line
+    secondLine: Of<string | undefined>(),
     city: Of<string>({ is: nonEmpty }),
     state: Of<string>({ is: nonEmpty }),
     zip: Of<number>({ is: atLeast(10000) }),
@@ -24,7 +21,8 @@ describe("Schema – nesting", () => {
   }) {}
 
   it("instantiates with nested object and exposes nested fields", () => {
-    const u = new User({
+    // `address` is a generic record
+    const u1 = new User({
       name: "Jane Doe",
       address: {
         firstLine: "123 Fake Street",
@@ -34,12 +32,21 @@ describe("Schema – nesting", () => {
       },
     });
 
-    // Outer fields
-    expect(u.name).toBe("Jane Doe");
+    // `address` is a schema instance
+    const u2 = new User({
+      name: "Jane Doe",
+      address: new Address({
+        firstLine: "123 Fake Street",
+        city: "Cityville",
+        state: "Nowhere",
+        zip: 12345,
+      }),
+    });
 
-    // Nested instance should be present and typed
-    expect(u.address.city).toBe("Cityville");
-    expect(u.address.zip).toBe(12345);
+    for (const u of [u1, u2]) {
+      expect(u.address.city).toBe("Cityville");
+      expect(u.address.zip).toBe(12345);
+    }
   });
 
   it("performs recursive validation", () => {
@@ -61,29 +68,17 @@ describe("Schema – nesting", () => {
     expect(errs).toContain("address.zip: 50 is not atLeast(10000)");
   });
 
-  /* ------------------------------------------------------------------ */
-  /* Deep nesting (2+ levels)                                           */
-  /* ------------------------------------------------------------------ */
-  class Company extends Schema.from({
-    name: Of<string>({ is: nonEmpty }),
-    hq: Of(Address),
-  }) {}
-
-  class Account extends Schema.from({
-    // Use the **class** overload of `Of` so the nested value can be provided
-    // either as a raw object *or* an already-constructed `User` instance.
-    //
-    // The generic (`Of<User>()`) variant is intentionally **not** used here
-    // because it describes a *plain object field* whose value must already be
-    // a `User` instance. That variant is useful when you genuinely want to
-    // store an existing model, but for nested-schema construction we need the
-    // special overload that injects the `schemaClass` sentinel so the Schema
-    // constructor knows to recurse.
-    owner: Of(User),
-    employer: Of(Company),
-  }) {}
-
   it("supports deeply-nested structures", () => {
+    class Company extends Schema.from({
+      name: Of<string>({ is: nonEmpty }),
+      hq: Of(Address),
+    }) {}
+
+    class Account extends Schema.from({
+      owner: Of(User),
+      employer: Of(Company),
+    }) {}
+
     const acct = new Account({
       owner: {
         name: "Alice",
