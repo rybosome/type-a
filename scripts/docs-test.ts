@@ -14,15 +14,13 @@ import { execSync } from "node:child_process";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Paths -------------------------------------------------------------
+// Paths
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DOCS_DIR = path.join(PROJECT_ROOT, "docs");
 const OUT_DIR = path.join(PROJECT_ROOT, ".docs-tests");
 const TESTS_SUBDIR = path.join(OUT_DIR, "tests");
 
-//--------------------------------------------------------------------
 // Helpers
-//--------------------------------------------------------------------
 
 /** Recursively collect Markdown file paths inside a directory. */
 async function collectMarkdown(dir: string): Promise<string[]> {
@@ -164,9 +162,7 @@ function run(cmd: string): void {
   execSync(cmd, { stdio: "inherit", env: process.env });
 }
 
-//--------------------------------------------------------------------
 // Main driver
-//--------------------------------------------------------------------
 
 (async () => {
   try {
@@ -174,7 +170,7 @@ function run(cmd: string): void {
     try {
       await fs.access(DOCS_DIR);
     } catch {
-      console.warn("No docs directory found – skipping docs tests.");
+      console.warn("No docs directory found - skipping docs tests.");
       process.exit(0);
     }
 
