@@ -20,13 +20,22 @@ export interface SchemaInstance {
  * instead be modelled as dedicated `Schema` classes so that validation and
  * serialisation rules remain explicit.
  */
-export type Typeable =
+// Primitive-or-schema scalar allowed in a field
+type ScalarTypeable =
   | string
   | number
   | boolean
   | null
   | undefined
   | SchemaInstance;
+
+/**
+ * Permitted runtime value for a field. Either a single scalar (primitive or
+ * `SchemaInstance`) **or** a flat array of those scalars.  Nested (2-dimensional)
+ * arrays are intentionally disallowed; model such structures with an
+ * explicit `Schema` so validation remains explicit.
+ */
+export type Typeable = ScalarTypeable | ScalarTypeable[];
 
 /* ------------------------------------------------------------------ */
 /* NEW: helpers for nested Schema classes                              */
