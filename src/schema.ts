@@ -411,22 +411,39 @@ export class Schema<F extends Fields> implements SchemaInstance {
       if (val instanceof Map) {
         const obj: Record<string, unknown> = {};
         for (const [k, v] of val.entries()) {
-          // Stringify the key for object property usage
-          obj[String(k)] = serialise(v);
+          // Convert key to string for use as an object property
+          const key = String(k);
+          // Guard against collisions such as 1 vs "1" or true vs "true"
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            throw new Error(
+              `Duplicate key after stringification: ${String(k)}`,
+            );
+          }
+          obj[key] = serialise(v);
         }
         return obj;
       }
+
       if (typeof val === "object") {
-        // Nested Schema instance
+        // Preserve run-time identity for `Schema` instances – they manage their own serialisation.
         if ((val as any).__isSchemaInstance) {
           return (val as Schema<any>).toJSON();
         }
-        // Plain object (Record)
-        const obj: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
-          obj[k] = serialise(v);
+
+        /* ------------------------------------------------------ */
+        /* Plain-object (Record) detection                         */
+        /* ------------------------------------------------------ */
+        const proto = Object.getPrototypeOf(val);
+        if (proto === Object.prototype || proto === null) {
+          const obj: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+            obj[k] = serialise(v);
+          }
+          return obj;
         }
-        return obj;
+
+        // Exotic objects (Date, RegExp, custom classes, etc.) – return as-is so callers can decide.
+        return val;
       }
       return val; // primitive scalar
     };

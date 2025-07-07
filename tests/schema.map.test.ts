@@ -112,7 +112,7 @@ describe("Schema record & map support", () => {
   /* ---------------------------------------------------------------------- */
 
   // Invalid Record value type – number not assignable to string
-  // @ts-expect-error
+  // @ts-expect-error – intentional compile-time failure
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   () =>
     new SimpleMaps({
@@ -121,7 +121,7 @@ describe("Schema record & map support", () => {
     });
 
   // Invalid Map value type – string not assignable to boolean
-  // @ts-expect-error
+  // @ts-expect-error – intentional compile-time failure
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   () =>
     new SimpleMaps({

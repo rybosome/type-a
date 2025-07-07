@@ -60,13 +60,13 @@ type TupleTypeable =
  * explicit.
  */
 /**
-* Extended `Typeable` including support for plain object maps and native
-* `Map` instances whose values are themselves `Typeable`.
-*
-* The recursive references are safe because they appear in **property**
-* positions (`{ [key: string]: … }`) or within the value slot of `Map`, which
-* avoids the illegal *direct* self-reference that TypeScript rejects.
-*/
+ * Extended `Typeable` including support for plain object maps and native
+ * `Map` instances whose values are themselves `Typeable`.
+ *
+ * The recursive references are safe because they appear in **property**
+ * positions (`{ [key: string]: … }`) or within the value slot of `Map`, which
+ * avoids the illegal *direct* self-reference that TypeScript rejects.
+ */
 export type Typeable =
   | ScalarTypeable
   | ScalarTypeable[]
