@@ -29,7 +29,8 @@
     "format": "prettier --write .",
     "check": "pnpm typecheck && pnpm lint && pnpm format",
     "go": "tsx src/main.ts",
-    "test": "pnpm check && pnpm build && vitest --run"
+    "test": "pnpm check && pnpm build && vitest --run",
+    "docs:test": "node ./scripts/docs-test.mjs"
   },
   "packageManager": "pnpm@10.11.1",
   "devDependencies": {
