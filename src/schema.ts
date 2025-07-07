@@ -398,13 +398,48 @@ export class Schema<F extends Fields> implements SchemaInstance {
   }
 
   toJSON(): ValueMap<F> {
+    /**
+     * Recursively serialise a runtime value so that the result is fully
+     * JSON-compatible (plain objects, arrays and primitives only).  Schema
+     * instances invoke their own `toJSON()` method; `Map` instances are
+     * converted to plain objects via `Object.fromEntries()` while their values
+     * are serialised recursively.
+     */
+    const serialise = (val: unknown): unknown => {
+      if (val == null) return val;
+      if (Array.isArray(val)) return val.map(serialise);
+      if (val instanceof Map) {
+        const obj: Record<string, unknown> = {};
+        for (const [k, v] of val.entries()) {
+          // Stringify the key for object property usage
+          obj[String(k)] = serialise(v);
+        }
+        return obj;
+      }
+      if (typeof val === "object") {
+        // Nested Schema instance
+        if ((val as any).__isSchemaInstance) {
+          return (val as Schema<any>).toJSON();
+        }
+        // Plain object (Record)
+        const obj: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+          obj[k] = serialise(v);
+        }
+        return obj;
+      }
+      return val; // primitive scalar
+    };
+
     const json = {} as ValueMap<F>;
     for (const key in this._fields) {
       const field = this._fields[key];
-      json[key] =
+      const raw =
         field.schemaClass && field.value != null
-          ? ((field.value as Schema<any>).toJSON() as any)
-          : (field.value as ValueMap<F>[typeof key]);
+          ? (field.value as Schema<any>).toJSON()
+          : field.value;
+      // Recursively serialise (handles Map & nested objects)
+      (json as Record<string, unknown>)[key] = serialise(raw);
     }
     return json;
   }
