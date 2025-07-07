@@ -1,4 +1,3 @@
-import { atLeast, atMost } from "./numeric";
 import { LogicalConstraint } from "@src/types";
 
 /**
@@ -62,14 +61,20 @@ export const shorterThan =
     val.length < n ? true : `length ${val.length} is not shorterThan(${n})`;
 
 /**
- * Alias of generic `atLeast`.  val.length ≥ min
+ * Ensures `val.length ≥ min`.
  */
-export const minLength = atLeast;
+export const minLength =
+  (min: number): LogicalConstraint<string> =>
+  (val) =>
+    val.length >= min ? true : `length ${val.length} is not atLeast(${min})`;
 
 /**
- * Alias of generic `atMost`.   val.length ≤ max
+ * Ensures `val.length ≤ max`.
  */
-export const maxLength = atMost;
+export const maxLength =
+  (max: number): LogicalConstraint<string> =>
+  (val) =>
+    val.length <= max ? true : `length ${val.length} is not atMost(${max})`;
 
 /**
  * val.length === n

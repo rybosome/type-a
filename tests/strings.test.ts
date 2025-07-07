@@ -7,8 +7,8 @@ import {
   notEqualTo,
   longerThan,
   shorterThan,
-  atLeast,
-  noMoreThan,
+  minLength,
+  maxLength,
   length as exactLength,
   lengthBetween,
   validAscii,
@@ -55,8 +55,8 @@ describe("String validators", () => {
   it("length constraints", () => {
     expect(longerThan(2)("abcd")).toBe(true);
     expect(shorterThan(5)("abcd")).toBe(true);
-    expect(atLeast(3)("abc")).toBe(true);
-    expect(noMoreThan(4)("abc")).toBe(true);
+    expect(minLength(3)("abc")).toBe(true);
+    expect(maxLength(4)("abc")).toBe(true);
     expect(exactLength(3)("abc")).toBe(true);
     expect(lengthBetween(2, 4)("abc")).toBe(true);
   });
