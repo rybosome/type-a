@@ -35,7 +35,31 @@ type ScalarTypeable =
  * arrays are intentionally disallowed; model such structures with an
  * explicit `Schema` so validation remains explicit.
  */
-export type Typeable = ScalarTypeable | ScalarTypeable[];
+/**
+ * Tuple (ordered, fixed-index) value composed entirely of *scalar* Typeable
+ * members.  Variadic tuples such as `[T, ...T[]]` are also covered because the
+ * repeated tail `T[]` portion still satisfies the scalar-array restriction.
+ *
+ * The empty tuple (`[]`) is intentionally allowed – while perhaps not useful in
+ * practice it keeps the definition mathematically complete and prevents
+ * surprises when generic tuples collapse to `never[]` or `[]` in edge-cases.
+ */
+type TupleTypeable =
+  | readonly []
+  | readonly [ScalarTypeable, ...ScalarTypeable[]];
+
+/**
+ * Permitted runtime value for a field. Either a single scalar (primitive or
+ * `SchemaInstance`), a *flat* array **or** a *flat* tuple of those scalars.
+ *
+ * Tuples are treated as a first-class citizen so that fields like
+ * `Of<[boolean, number]>()` and `Of<[string, ...string[]]>()` work seamlessly
+ * without loosening the element-type guarantees.  Nested (2-dimensional)
+ * arrays/tuples are **not** permitted – model such structures explicitly with a
+ * dedicated `Schema` so that validation and serialisation rules remain
+ * explicit.
+ */
+export type Typeable = ScalarTypeable | ScalarTypeable[] | TupleTypeable;
 
 /* ------------------------------------------------------------------ */
 /* NEW: helpers for nested Schema classes                              */
