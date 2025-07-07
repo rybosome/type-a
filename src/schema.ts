@@ -101,13 +101,12 @@ type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
  * Overload #3 – nested Schema class
  */
 export function Of<T extends Typeable>(opts?: {
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldWithoutDefault<T>;
+export function Of<T extends Typeable>(opts?: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
-export function Of<T extends Typeable>(opts?: {
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldWithoutDefault<T>;
-// #3 – nested Schema class
 export function Of<S extends SchemaClass>(
   schemaClass: S,
 ): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
