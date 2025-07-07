@@ -6,12 +6,9 @@ This repository uses **Type-A** for schema validation. The snippets below are **
 import { Schema, Of } from "@rybosome/type-a";
 
 // A simple schema definition using Type-A.
-// A `Schema` is created by calling the `Schema.from({ ...fields })` factory.
-// Each field uses the `Of<T>(opts?)` helper to declare its type and options.
-// Empty `{}` is sufficient when no constraints/defaults are needed.
 class User extends Schema.from({
-  name: Of<string>({}),
-  age: Of<number>({}),
+  name: Of<string>(),
+  age: Of<number>(),
 }) {}
 
 // Runtime validation & property access
