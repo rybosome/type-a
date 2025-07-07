@@ -42,7 +42,10 @@ export interface FieldType<T extends Typeable> {
   readonly __t: T;
 
   /**
-   * The underlying value contained in the field.
+   * The underlying value contained in the field.  In addition to primitive
+   * scalars and flat arrays, **tuple** values (both fixed-length and variadic
+   * rest-pattern forms) are fully supported via the extended {@link Typeable}
+   * definition.
    */
   value: T | undefined;
 
