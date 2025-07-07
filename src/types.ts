@@ -15,6 +15,7 @@ export interface SchemaInstance {
 type ScalarTypeable =
   | string
   | number
+  | bigint
   | boolean
   | null
   | undefined

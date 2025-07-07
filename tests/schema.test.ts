@@ -148,5 +148,45 @@ describe("Schema", () => {
       const invalidOdd = new Model({ age: 11 }); // passes atLeast(10), fails even check
       expect(invalidOdd.validate()).toEqual(["age: must be even"]);
     });
+
+    /* ------------------------------------------------------------------ */
+    /* BigInt primitive support                                            */
+    /* ------------------------------------------------------------------ */
+
+    describe("bigint primitive", () => {
+      class BigIntModel extends Schema.from({
+        qty: Of<bigint>({}),
+      }) {}
+
+      it("accepts a valid BigInt value", () => {
+        const m = new BigIntModel({ qty: 42n });
+        expect(m.qty).toBeTypeOf("bigint");
+        expect(m.qty).toBe(42n);
+        expect(m.validate()).toEqual([]);
+      });
+
+      it("handles very large and negative BigInt values", () => {
+        const veryLarge = 123456789012345678901234567890123456789n;
+        const negative = -999999999999999999999999999999999999n;
+
+        const largeModel = new BigIntModel({ qty: veryLarge });
+        const negativeModel = new BigIntModel({ qty: negative });
+
+        expect(largeModel.qty).toBe(veryLarge);
+        expect(negativeModel.qty).toBe(negative);
+        expect(largeModel.validate()).toEqual([]);
+        expect(negativeModel.validate()).toEqual([]);
+      });
+
+      it("blocks non-BigInt inputs at compile-time", () => {
+        // @ts-expect-error – string is not assignable to bigint
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _badString = new BigIntModel({ qty: "123" });
+
+        // @ts-expect-error – number is not assignable to bigint
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _badNumber = new BigIntModel({ qty: 123 });
+      });
+    });
   });
 });
