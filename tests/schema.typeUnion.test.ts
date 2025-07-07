@@ -1,3 +1,7 @@
+/**
+ * Tests type union in schema definitions.
+ */
+
 import { describe, it, expect } from "vitest";
 import { Schema, Of } from "@rybosome/type-a";
 
@@ -6,7 +10,7 @@ class Response extends Schema.from({
   status: Of<"ok" | number>(),
 }) {}
 
-describe("Union type support", () => {
+describe("Schema Union type support", () => {
   it("constructs with valid union values", () => {
     const success = new Response({ status: "ok" });
     expect(success.status).toBe("ok");

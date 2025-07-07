@@ -1,8 +1,5 @@
-import { LogicalConstraint } from "../schema";
 import { atLeast, atMost } from "./numeric";
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
+import { LogicalConstraint } from "@src/types";
 
 /**
  * Ensures a string has at least one character.

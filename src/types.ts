@@ -1,15 +1,17 @@
 /**
- * Generic result helper types.
- *
- *  Result - discriminated union carrying either a valid value (`val`) or an
- *           error container (`errs`). Exactly one of the two is defined.
- *  ErrLog - per-field error map (`string | undefined`) with a `summarize`
- *           helper returning all collected error strings.
- *  Maybe  - convenience alias: `Result<T, ErrLog<T>>`.
+ * The subset of types which can be used in a schema field.
  */
+export type Typeable = string | number | boolean | null | undefined;
 
 /**
- * Discriminated result wrapper.
+ * A constraint over a Typeable value indicating that it must adhere to the given
+ * function's properties.
+ */
+export type LogicalConstraint<T extends Typeable> = (val: T) => true | string;
+
+/**
+ * Discriminated union carrying either a valid value (`val`) or an error container
+ * (`errs`).  Exactly one of the two is defined.
  */
 export type Result<V, E> =
   | { val: V; errs: undefined }
