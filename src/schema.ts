@@ -406,6 +406,15 @@ export class Schema<F extends Fields> implements SchemaInstance {
      */
     const serialise = (val: unknown): unknown => {
       if (val == null) return val;
+
+      /* -------------------------------------------------- */
+      /* Primitive BigInt handling                          */
+      /* -------------------------------------------------- */
+      // Native `JSON.stringify` throws on BigInt values.  Convert to a
+      // string representation so callers can safely serialise the output
+      // produced by `Schema#toJSON()` without additional hooks.
+      if (typeof val === "bigint") return val.toString();
+
       if (Array.isArray(val)) return val.map(serialise);
       if (val instanceof Map) {
         const obj: Record<string, unknown> = {};
