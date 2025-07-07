@@ -113,19 +113,11 @@ describe("Schema record & map support", () => {
 
   // Invalid Record value type – number not assignable to string
   // @ts-expect-error – intentional compile-time failure
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  () =>
-    new SimpleMaps({
-      meta: { key: 123 },
-      flags: new Map<number, boolean>([[1, true]]),
-    });
+  // prettier-ignore
+  void new SimpleMaps({ meta: { key: 123 }, flags: new Map<number, boolean>([[1, true]]) });
 
   // Invalid Map value type – string not assignable to boolean
   // @ts-expect-error – intentional compile-time failure
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  () =>
-    new SimpleMaps({
-      meta: { ok: "yes" },
-      flags: new Map<number, string>([[1, "bad"]]),
-    });
+  // prettier-ignore
+  void new SimpleMaps({ meta: { ok: "yes" }, flags: new Map<number, string>([[1, "bad"]]) });
 });
