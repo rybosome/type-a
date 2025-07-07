@@ -10,17 +10,8 @@ export interface SchemaInstance {
 }
 
 /**
- * The subset of values that may appear in a schema field.
- *
- * • Primitives – `string | number | boolean | null | undefined`
- * • Nested schema instances – {@link SchemaInstance}
- *
- * **Note:** Arrays, functions, class instances *other than* schemas, and plain
- * objects are *not* considered `Typeable`.  Those more complex shapes should
- * instead be modelled as dedicated `Schema` classes so that validation and
- * serialisation rules remain explicit.
+ * The subset of values that may appear in a scalar schema field.
  */
-// Primitive-or-schema scalar allowed in a field
 type ScalarTypeable =
   | string
   | number
@@ -29,12 +20,6 @@ type ScalarTypeable =
   | undefined
   | SchemaInstance;
 
-/**
- * Permitted runtime value for a field. Either a single scalar (primitive or
- * `SchemaInstance`) **or** a flat array of those scalars.  Nested (2-dimensional)
- * arrays are intentionally disallowed; model such structures with an
- * explicit `Schema` so validation remains explicit.
- */
 /**
  * Tuple (ordered, fixed-index) value composed entirely of *scalar* Typeable
  * members.  Variadic tuples such as `[T, ...T[]]` are also covered because the
@@ -49,23 +34,11 @@ type TupleTypeable =
   | readonly [ScalarTypeable, ...ScalarTypeable[]];
 
 /**
- * Permitted runtime value for a field. Either a single scalar (primitive or
- * `SchemaInstance`), a *flat* array **or** a *flat* tuple of those scalars.
- *
- * Tuples are treated as a first-class citizen so that fields like
- * `Of<[boolean, number]>()` and `Of<[string, ...string[]]>()` work seamlessly
- * without loosening the element-type guarantees.  Nested (2-dimensional)
- * arrays/tuples are **not** permitted – model such structures explicitly with a
- * dedicated `Schema` so that validation and serialisation rules remain
- * explicit.
- */
-/**
- * Extended `Typeable` including support for plain object maps and native
- * `Map` instances whose values are themselves `Typeable`.
- *
- * The recursive references are safe because they appear in **property**
- * positions (`{ [key: string]: … }`) or within the value slot of `Map`, which
- * avoids the illegal *direct* self-reference that TypeScript rejects.
+ * Permitted runtime value for a field. Either a:
+ *   - single scalar (primitive or `SchemaInstance`)
+ *   - a *flat* array
+ *   - a *flat* tuple
+ *   - a record or map where keys and values are Typeable
  */
 export type Typeable =
   | ScalarTypeable
@@ -74,11 +47,8 @@ export type Typeable =
   | { [key: string]: Typeable }
   | Map<unknown, Typeable>;
 
-/* ------------------------------------------------------------------ */
-/* NEW: helpers for nested Schema classes                              */
-/* ------------------------------------------------------------------ */
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Extract the *constructed* (output) type of a Schema class.
  *
