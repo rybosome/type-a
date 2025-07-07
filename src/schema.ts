@@ -6,6 +6,7 @@ import type {
   OutputOf,
   Result,
   Typeable,
+  SchemaInstance,
 } from "@src/types";
 
 /* ------------------------------------------------------------------ */
@@ -230,7 +231,8 @@ function composeConstraints<T extends Typeable>(
 /**
  * A dataclass-style object with parsing, validation and rendering.
  */
-export class Schema<F extends Fields> {
+export class Schema<F extends Fields> implements SchemaInstance {
+  readonly __isSchemaInstance = true as const;
   // store backing fields
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
@@ -259,7 +261,12 @@ export class Schema<F extends Fields> {
 
       // Handle nested Schema instantiation when necessary
       const nestedValue = (() => {
-        if (fieldDef.schemaClass == null || value === undefined) return value;
+        if (
+          fieldDef.schemaClass == null ||
+          value === undefined ||
+          value === null
+        )
+          return value;
         const Ctor = fieldDef.schemaClass;
         return value instanceof Ctor ? value : new Ctor(value as any);
       })();

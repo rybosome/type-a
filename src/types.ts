@@ -1,8 +1,32 @@
 /**
- * The subset of types which can be used in a schema field.
- * – Extended with generic `object` to allow nested {@link Schema} instances.
+ * Marker interface implemented by every {@link Schema} instance. Using a
+ * branded property instead of the broad `object` type lets us distinguish
+ * *actual* schema objects from arbitrary runtime objects while still allowing
+ * nested-schema support.
  */
-export type Typeable = string | number | boolean | null | undefined | object;
+export interface SchemaInstance {
+  // Branded discriminator – never assigned by consumers.
+  readonly __isSchemaInstance: true;
+}
+
+/**
+ * The subset of values that may appear in a schema field.
+ *
+ * • Primitives – `string | number | boolean | null | undefined`
+ * • Nested schema instances – {@link SchemaInstance}
+ *
+ * **Note:** Arrays, functions, class instances *other than* schemas, and plain
+ * objects are *not* considered `Typeable`.  Those more complex shapes should
+ * instead be modelled as dedicated `Schema` classes so that validation and
+ * serialisation rules remain explicit.
+ */
+export type Typeable =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | SchemaInstance;
 
 /* ------------------------------------------------------------------ */
 /* NEW: helpers for nested Schema classes                              */
