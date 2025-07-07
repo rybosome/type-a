@@ -1,7 +1,13 @@
 import { LogicalConstraint } from "@src/types";
 
+/* -------------------------------------------------------------------------- */
+/*  Numeric comparison helpers                                                */
+/* -------------------------------------------------------------------------- */
+
 /**
- * val >= min
+ * Ensures `val ≥ min`.
+ *
+ * String inputs are **not** supported – use {@link minLength} instead.
  */
 export const atLeast =
   (min: number): LogicalConstraint<number> =>
@@ -9,27 +15,29 @@ export const atLeast =
     val >= min ? true : `${val} is not atLeast(${min})`;
 
 /**
- * val <= max
+ * Ensures `val ≤ max`.
+ *
+ * String inputs are **not** supported – use {@link maxLength} instead.
  */
 export const atMost =
   (max: number): LogicalConstraint<number> =>
   (val) =>
     val <= max ? true : `${val} is not atMost(${max})`;
 
-// Alias that reads a little nicer for some usages
+/** Alias that reads a little nicer for some usages */
 export const noMoreThan = atMost;
 
-/**
- * val > min
- */
+/* -------------------------------------------------------------------------- */
+/*  Pure numeric helpers                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** val > min */
 export const greaterThan =
   (min: number): LogicalConstraint<number> =>
   (val) =>
     val > min ? true : `${val} is not greaterThan(${min})`;
 
-/**
- * val < max
- */
+/** val < max */
 export const lessThan =
   (max: number): LogicalConstraint<number> =>
   (val) =>
@@ -61,5 +69,5 @@ export const negative: LogicalConstraint<number> = (val) =>
 export const isInteger: LogicalConstraint<number> = (val) =>
   Number.isInteger(val) ? true : `${val} is not an integer`;
 
-// Backwards-compat alias
+/* Backwards-compat alias */
 export const integer = isInteger;
