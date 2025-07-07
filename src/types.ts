@@ -59,18 +59,14 @@ type TupleTypeable =
  * dedicated `Schema` so that validation and serialisation rules remain
  * explicit.
  */
-/* ------------------------------------------------------------------ */
-/* Map & Record support (recursive)                                    */
-/* ------------------------------------------------------------------ */
-
 /**
- * Permitted runtime value for a field **including** arbitrary map/record
- * collections.
- *
- * The recursive references are safe because they appear in *property*
- * positions (`{ [key: string]: … }`) or within the value slot of `Map`.  This
- * avoids the illegal direct self-reference case that TypeScript rejects.
- */
+* Extended `Typeable` including support for plain object maps and native
+* `Map` instances whose values are themselves `Typeable`.
+*
+* The recursive references are safe because they appear in **property**
+* positions (`{ [key: string]: … }`) or within the value slot of `Map`, which
+* avoids the illegal *direct* self-reference that TypeScript rejects.
+*/
 export type Typeable =
   | ScalarTypeable
   | ScalarTypeable[]
