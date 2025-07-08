@@ -1,5 +1,7 @@
 # type-a
 
+<img src="https://github.com/rybosome/type-a/raw/refs/heads/main/docs/assets/anna-adder.png">
+
 A minimal, class-first validation library for TypeScript — inspired by Python’s Pydantic, but built for the TypeScript ecosystem. Define schema and logic together, with zero decorators, zero codegen, and native field access via classes.
 
 ## ✨ Features
