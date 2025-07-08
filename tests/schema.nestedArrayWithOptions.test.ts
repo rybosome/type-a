@@ -13,18 +13,15 @@ class LoginAttempt extends Schema.from({
 
 class User extends Schema.from({
   // Demonstrate array-of-schema support + custom validator via `is`
-  loginAttempts: Of<LoginAttempt[]>({
-    schemaClass: LoginAttempt,
-    is: positiveTimestamp,
-  }),
+  loginAttempts: Of<LoginAttempt[]>({ is: positiveTimestamp }),
 }) {}
 
 describe("Schema – nested schema arrays with options", () => {
-  it("constructs and validates instances created from plain objects", () => {
+  it("constructs and validates instances created from schema instances", () => {
     const u = new User({
       loginAttempts: [
-        { success: true, unixTimestampMs: 123 },
-        { success: false, unixTimestampMs: 456 },
+        new LoginAttempt({ success: true, unixTimestampMs: 123 }),
+        new LoginAttempt({ success: false, unixTimestampMs: 456 }),
       ],
     });
 
@@ -38,7 +35,7 @@ describe("Schema – nested schema arrays with options", () => {
 
   it("surfaces validation errors with correct path", () => {
     const u = new User({
-      loginAttempts: [{ success: true, unixTimestampMs: -1 }],
+      loginAttempts: [new LoginAttempt({ success: true, unixTimestampMs: -1 })],
     });
 
     expect(u.validate()).toEqual(["loginAttempts: timestamp must be positive"]);

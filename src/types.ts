@@ -70,6 +70,28 @@ export type OutputOf<S> = S extends new (...args: any[]) => infer O ? O : never;
 export type InputOf<S> = S extends new (input: infer I) => any ? I : never;
 
 /**
+ * Utility marker signalling that a field holds a nested `Schema` instance.
+ *
+ * The generic parameter carries the *constructor* (type) of the nested
+ * `Schema` while the resulting type evaluates to its output shape – this is
+ * exactly the same type callers would normally use at runtime.
+ *
+ * ````ts
+ * class Address extends Schema.from({ … }) {}
+ *
+ * class User extends Schema.from({
+ *   // Nested Schema → requires an instance of Address
+ *   address: Of<Nested<typeof Address>>(),
+ * }) {}
+ * ```
+ *
+ * At the moment `Nested<T>` is purely a *compile-time* indicator – no
+ * additional runtime branding is emitted so the resulting value is 100%
+ * compatible with plain `OutputOf<T>`.
+ */
+export type Nested<S extends new (...args: any[]) => any> = OutputOf<S>;
+
+/**
  * A constraint over a Typeable value indicating that it must adhere to the given
  * function's properties.
  */

@@ -123,40 +123,19 @@ type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
 // Overload signatures
 // ──────────────────────────────────────────────────────────────────────────
 
-// 1. Nested Schema (single or array) – type information derived solely from generic `T`
-export function Of<
-  S extends SchemaClass,
-  T extends OutputOf<S> | OutputOf<S>[],
->(opts: {
-  schemaClass: S;
-  default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldType<T> & { schemaClass: S };
-
-// Fallback nested overload with relaxed type constraints to improve inference
-// when the stricter generic relationship is not easily satisfied by the
-// compiler (e.g. unions, optional, nullable).  **Note**: because the type
-// parameter `T` is supplied explicitly by the caller it remains the sole source
-// of compile-time information – the runtime `schemaClass` is used only for
-// instantiation.
-export function Of<T extends Typeable>(opts: {
-  schemaClass: SchemaClass;
-  default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldType<T> & { schemaClass: SchemaClass };
-
-// 2. Primitive field **without** default/serdes
+// Primitive field **without** default/serdes – covers nested `Nested<Schema>`
+// and `Schema[]` by relying solely on the generic parameter.
 export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
 
-// 3. Primitive field **with default** (no serdes)
+// Primitive field **with default** (no serdes)
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
 
-// 4. Primitive field with custom serdes **without default**
+// Primitive field with custom serdes **without default**
 export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
@@ -347,30 +326,12 @@ export class Schema<F extends Fields> implements SchemaInstance {
         )[1](value as any);
       })();
 
-      // Handle nested Schema instantiation when necessary – supports single
-      // instance **and** array-of-instances.
-      const nestedValue = (() => {
-        if (
-          fieldDef.schemaClass == null ||
-          deserialised === undefined ||
-          deserialised === null
-        )
-          return deserialised;
-
-        const Ctor = fieldDef.schemaClass;
-
-        // Arrays – map each element to an instance if it's not one already.
-        if (Array.isArray(deserialised)) {
-          return deserialised.map((elem) =>
-            elem instanceof Ctor ? elem : new Ctor(elem as any),
-          );
-        }
-
-        // Single object
-        return deserialised instanceof Ctor
-          ? deserialised
-          : new Ctor(deserialised as any);
-      })();
+      // Preserve supplied/deserialised value as-is.  Previous versions of
+      // `Of()` automatically instantiated nested Schemas when callers passed
+      // plain objects.  With the introduction of the `Nested<T>` wrapper this
+      // responsibility moves to the caller – values for nested fields must
+      // already be `Schema` instances.
+      const nestedValue = deserialised;
 
       const field = {
         value: nestedValue as ValueMap<F>[typeof key],
@@ -484,14 +445,20 @@ export class Schema<F extends Fields> implements SchemaInstance {
       /* ---------------------------------------------------------- */
       /* Recurse into nested Schemas (single & array)               */
       /* ---------------------------------------------------------- */
-      if (field.schemaClass && field.value != null) {
+      /* ---------------------------------------------------------- */
+      /* Recurse into nested Schemas based on runtime instance      */
+      /* detection rather than static field metadata.               */
+      /* ---------------------------------------------------------- */
+      if (field.value != null) {
         if (Array.isArray(field.value)) {
-          field.value.forEach((item: Schema<any>, idx: number) => {
-            const nestedErrors = item.validate();
-            for (const msg of nestedErrors)
-              errors.push(`${key}[${idx}].${msg}`);
+          field.value.forEach((item: unknown, idx: number) => {
+            if ((item as any)?.__isSchemaInstance) {
+              const nestedErrors = (item as Schema<any>).validate();
+              for (const msg of nestedErrors)
+                errors.push(`${key}[${idx}].${msg}`);
+            }
           });
-        } else {
+        } else if ((field.value as any)?.__isSchemaInstance) {
           const nestedErrors = (field.value as Schema<any>).validate();
           for (const msg of nestedErrors) errors.push(`${key}.${msg}`);
         }
@@ -581,13 +548,16 @@ export class Schema<F extends Fields> implements SchemaInstance {
     for (const key in this._fields) {
       const field = this._fields[key];
       let raw: unknown;
-      if (field.schemaClass && field.value != null) {
-        if (Array.isArray(field.value)) {
-          raw = field.value.map((v: Schema<any>) => v.toJSON());
-        } else {
-          raw = (field.value as Schema<any>).toJSON();
-        }
-      } else if (field.serdes && field.value != null) {
+      if (field.value == null) {
+        raw = field.value;
+      } else if (
+        Array.isArray(field.value) &&
+        (field.value[0] as any)?.__isSchemaInstance
+      ) {
+        raw = field.value.map((v: any) => (v as Schema<any>).toJSON());
+      } else if ((field.value as any)?.__isSchemaInstance) {
+        raw = (field.value as Schema<any>).toJSON();
+      } else if (field.serdes) {
         raw = field.serdes[0](field.value as any);
       } else {
         raw = field.value;

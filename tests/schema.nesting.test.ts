@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, Of, nonEmpty, atLeast, Nested } from "@rybosome/type-a";
 
 /**
- * Tests for arbitrarily-nested schema support.
+ * Tests for arbitrarily-nested schema support using the new generic-only
+ * `Of<Nested<...>>()` API (no `schemaClass` duplication).
  */
 
 describe("Schema nesting", () => {
@@ -17,48 +18,32 @@ describe("Schema nesting", () => {
 
   class User extends Schema.from({
     name: Of<string>({ is: nonEmpty }),
-    address: Of<Address>({ schemaClass: Address }),
+    address: Of<Nested<typeof Address>>(),
   }) {}
 
-  it("instantiates with nested object and exposes nested fields", () => {
-    // `address` is a generic record
-    const u1 = new User({
-      name: "Jane Doe",
-      address: {
-        firstLine: "123 Fake Street",
-        city: "Cityville",
-        state: "Nowhere",
-        zip: 12345,
-      },
+  it("instantiates with nested schema instances and exposes nested fields", () => {
+    const addr = new Address({
+      firstLine: "123 Fake Street",
+      city: "Cityville",
+      state: "Nowhere",
+      zip: 12345,
     });
 
-    // `address` is a schema instance
-    const u2 = new User({
-      name: "Jane Doe",
-      address: new Address({
-        firstLine: "123 Fake Street",
-        city: "Cityville",
-        state: "Nowhere",
-        zip: 12345,
-      }),
-    });
+    const u = new User({ name: "Jane Doe", address: addr });
 
-    for (const u of [u1, u2]) {
-      expect(u.address.city).toBe("Cityville");
-      expect(u.address.zip).toBe(12345);
-    }
+    expect(u.address.city).toBe("Cityville");
+    expect(u.address.zip).toBe(12345);
   });
 
-  it("performs recursive validation", () => {
-    const bad = new User({
-      name: "Bob",
-      address: {
-        firstLine: "", // fails nonEmpty
-        city: "", // fails nonEmpty
-        state: "", // fails nonEmpty
-        zip: 50, // fails atLeast(10000)
-      },
+  it("performs recursive validation when nested schema is invalid", () => {
+    const badAddr = new Address({
+      firstLine: "", // fails nonEmpty
+      city: "", // fails nonEmpty
+      state: "", // fails nonEmpty
+      zip: 50, // fails atLeast(10000)
     });
+
+    const bad = new User({ name: "Bob", address: badAddr });
 
     const errs = bad.validate();
 
@@ -71,33 +56,33 @@ describe("Schema nesting", () => {
   it("supports deeply-nested structures", () => {
     class Company extends Schema.from({
       name: Of<string>({ is: nonEmpty }),
-      hq: Of<Address>({ schemaClass: Address }),
+      hq: Of<Nested<typeof Address>>(),
     }) {}
 
     class Account extends Schema.from({
-      owner: Of<User>({ schemaClass: User }),
-      employer: Of<Company>({ schemaClass: Company }),
+      owner: Of<Nested<typeof User>>(),
+      employer: Of<Nested<typeof Company>>(),
     }) {}
 
     const acct = new Account({
-      owner: {
+      owner: new User({
         name: "Alice",
-        address: {
+        address: new Address({
           firstLine: "456 Somewhere Ave",
           city: "Townsville",
           state: "TX",
           zip: 77777,
-        },
-      },
-      employer: {
+        }),
+      }),
+      employer: new Company({
         name: "ACME Corp",
-        hq: {
+        hq: new Address({
           firstLine: "1 Corporate Way",
           city: "Metropolis",
           state: "NY",
           zip: 10001,
-        },
-      },
+        }),
+      }),
     });
 
     expect(acct.owner.address.state).toBe("TX");
