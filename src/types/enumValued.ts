@@ -64,10 +64,26 @@ export interface EnumValuedWrapper<E extends Record<string, string | number>> {
 export function enumValued<E extends Record<string, string | number>>(
   e: E,
 ): EnumValuedWrapper<E> {
-  // Extract *unique* values.  Reverse-mapped numeric enums emit both numeric
-  // and string keys – `typeof foo === "number"` – we’re only interested in
-  // the primitive values accessible to callers.
-  const vals = Array.from(new Set(Object.values(e))) as E[keyof E][];
+  // Extract *unique* values.  Reverse-mapped numeric enums emit *both* their
+  // numeric values **and** the original string keys when iterated via
+  // `Object.values()`, e.g.:
+  //   enum Direction { Up, Down }
+  //   Object.values(Direction) → ["Up", "Down", 0, 1]
+  // The string keys ("Up", "Down") point back to a numeric value on the enum
+  // object (`Direction["Up"] === 0`) – those are the artifacts we need to
+  // discard.  For *string* enums there is no reverse mapping so `e[v]` will be
+  // `undefined` for the actual values ("ok", "error", …).  Therefore we keep a
+  // value when either it is non-string **or** it is a string that doesn’t map
+  // back to something on the enum object.
+  const vals = Array.from(
+    new Set(
+      Object.values(e).filter(
+        (v) =>
+          typeof v !== "string" ||
+          typeof (e as Record<string, unknown>)[v] === "undefined",
+      ),
+    ),
+  ) as E[keyof E][];
 
   return {
     // Non-enumerable by default so userland `console.log` remains clean.
