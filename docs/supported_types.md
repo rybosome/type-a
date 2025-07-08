@@ -97,7 +97,7 @@ expect(c.pair).toEqual([true, 42]);
 Schemas compose naturally – just pass another `Schema` class to `Of()` and **Type-A** recurses automatically when constructing, validating, and serializing.
 
 ```typescript test
-import { Schema, Of, nonEmpty } from "@rybosome/type-a";
+import { Schema, Nested, Of, nonEmpty } from "@rybosome/type-a";
 
 class Address extends Schema.from({
   street: Of<string>({ is: nonEmpty }),
@@ -106,7 +106,7 @@ class Address extends Schema.from({
 
 class User extends Schema.from({
   name: Of<string>(),
-  address: Of(Address), // Nested schema
+  address: Of<Nested<typeof Address>>(),
 }) {}
 
 const u = new User({

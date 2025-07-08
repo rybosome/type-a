@@ -16,10 +16,45 @@ import type {
 /**
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
-type SchemaClass = {
+export type SchemaClass = {
   new (input: any): SchemaInstance;
   _schema: Fields;
 };
+
+export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
+
+/**
+ * Recursively instantiate nested schema values.
+ */
+export function instantiateNestedSchemas<T>(
+  value: unknown,
+  schemaClass: { new (v: any): T },
+): T | T[] {
+  console.error("instantiateNestedSchemas called with:", value);
+
+  if (Array.isArray(value)) {
+    const result = value.map((v) => {
+      const instance = v instanceof schemaClass ? v : new schemaClass(v);
+      console.error(" → instantiating array item:", v, "→", instance);
+      return instance;
+    });
+    return result;
+  }
+
+  if (value instanceof schemaClass) {
+    console.error(" → already instance of schemaClass:", value);
+    return value;
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const instance = new schemaClass(value);
+    console.error(" → instantiated object:", value, "→", instance);
+    return instance;
+  }
+
+  console.error(" → returned unchanged:", value);
+  return value as T;
+}
 
 // --------------------
 // FieldType
@@ -114,11 +149,8 @@ type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
 
 /**
  * Create a field descriptor.
- *
- * Overload #1 – with default value
- * Overload #2 – without default value (opts provided)
- * Overload #3 – nested Schema class
  */
+
 // ──────────────────────────────────────────────────────────────────────────
 // Overload signatures
 // ──────────────────────────────────────────────────────────────────────────
@@ -151,12 +183,7 @@ export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
 };
 
-// 5. Nested Schema class shortcut
-export function Of<S extends SchemaClass>(
-  schemaClass: S,
-): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
-
-// 6. Generic implementation – internal body (not exposed)
+// 5. Generic implementation – internal body (not exposed)
 // NOTE: Default `R` to `T` so that calls without custom `serdes` inherit the
 //       same raw type as the value itself, matching the public overloads.
 export function Of<T extends Typeable, R = T>(opts?: {
@@ -164,18 +191,8 @@ export function Of<T extends Typeable, R = T>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
   serdes?: [(value: T) => R, (value: R) => T];
 }): FieldType<T, R> {
-  /* -------------------------------------------------------------- */
-  /* Nested Schema overload – single class argument                 */
-  /* -------------------------------------------------------------- */
+  // Handle overload where opts is a schema class
   if (typeof opts === "function" && "_schema" in opts) {
-    // The phantom `__t` key must exist on the object for the
-    // `FieldType` structural type to match.  We intentionally set it
-    // to `undefined as unknown` so nothing is emitted at runtime while
-    // still satisfying the compiler.
-    //
-    // Cast through `unknown` first to avoid the strict-property-
-    // initialisation error TS 2413 in “--strict” mode, then to
-    // `FieldType<any>` so callers see the correct compile-time shape.
     return {
       __t: undefined,
       value: undefined,
@@ -183,17 +200,28 @@ export function Of<T extends Typeable, R = T>(opts?: {
     } as unknown as FieldType<any>;
   }
 
-  /* -------------------------------------------------------------- */
-  /* Primitive/flat field handling                                  */
-  /* -------------------------------------------------------------- */
+  let schemaClass: SchemaClass | undefined = undefined;
+
+  // Auto-extract schemaClass from opts.__t
+  if (opts && typeof opts === "object" && "__t" in opts) {
+    const t = (opts as any).__t;
+
+    const maybeInstance = Array.isArray(t) ? t[0] : t;
+
+    if (maybeInstance && typeof maybeInstance === "object") {
+      if (maybeInstance.constructor?._schema) {
+        schemaClass = maybeInstance.constructor;
+      }
+    }
+  }
 
   const base = {
     value: undefined as T | undefined,
     ...(opts?.is ? { is: opts.is } : {}),
     ...(opts?.serdes ? { serdes: opts.serdes } : {}),
+    ...(schemaClass ? { schemaClass } : {}),
   };
 
-  // Only attach the `default` property when the caller actually supplied one.
   if (opts && "default" in opts && opts.default !== undefined) {
     return { ...base, default: opts.default } as FieldType<T, R>;
   }
@@ -249,15 +277,18 @@ type RequiredKeys<F extends Fields> = {
  */
 type InputType<F> = F extends { schemaClass: infer S }
   ? S extends SchemaClass
-    ? InputOf<S>
+    ? Nested<S>
     : never
-  : // Custom raw type extracted directly from the `[serializer, deserializer]` tuple
-    F extends {
+  : F extends {
         serdes: [(value: any) => infer Raw, (value: infer Raw) => any];
       }
     ? Raw
-    : F extends FieldType<any, infer R>
-      ? R
+    : F extends FieldType<infer V, any>
+      ? V extends { __isNested: true; schemaClass: infer S }
+        ? S extends SchemaClass
+          ? InputOf<S>
+          : never
+        : V
       : never;
 
 type InputValueMap<F extends Fields> = {
@@ -291,7 +322,6 @@ function composeConstraints<T extends Typeable>(
  */
 export class Schema<F extends Fields> implements SchemaInstance {
   readonly __isSchemaInstance = true as const;
-  // store backing fields
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
   };
@@ -307,7 +337,22 @@ export class Schema<F extends Fields> implements SchemaInstance {
       keyof F,
       F[keyof F],
     ][]) {
-      // Determine supplied value; fall back to default when omitted/undefined
+      if (!fieldDef.schemaClass && "__t" in fieldDef) {
+        const rawT = (fieldDef as any).__t;
+        const maybeInstance = Array.isArray(rawT) ? rawT[0] : rawT;
+
+        if (
+          maybeInstance &&
+          typeof maybeInstance === "object" &&
+          maybeInstance.constructor?._schema
+        ) {
+          (fieldDef as any).schemaClass = maybeInstance.constructor;
+          console.error(
+            `✅ schemaClass inferred for field '${String(key)}':`,
+            maybeInstance.constructor.name,
+          );
+        }
+      }
       const supplied = (input as Record<string, unknown>)[key as string];
       const def = fieldDef.default;
       const value =
@@ -317,36 +362,30 @@ export class Schema<F extends Fields> implements SchemaInstance {
             ? (def as () => unknown)()
             : def;
 
-      // Apply custom deserialiser (raw → T) when provided **and** the caller
-      // supplied the value explicitly.  We intentionally skip deserialisation
-      // when a `default` is used because defaults are already typed as `T`.
       const deserialised = (() => {
         if (!fieldDef.serdes) return value;
-        if (supplied === undefined) return value; // default in play – already T
+        if (supplied === undefined) return value;
         if (value === undefined || value === null) return value;
         return (
           fieldDef.serdes as [(v: unknown) => unknown, (v: unknown) => unknown]
         )[1](value as any);
       })();
 
-      // Handle nested Schema instantiation when necessary
-      const nestedValue = (() => {
-        if (
-          fieldDef.schemaClass == null ||
-          deserialised === undefined ||
-          deserialised === null
-        )
-          return deserialised;
-        const Ctor = fieldDef.schemaClass;
-        return deserialised instanceof Ctor
-          ? deserialised
-          : new Ctor(deserialised as any);
-      })();
+      const nestedValue =
+        fieldDef.schemaClass != null
+          ? instantiateNestedSchemas(deserialised, fieldDef.schemaClass)
+          : deserialised;
+
+      if (fieldDef.schemaClass) {
+        console.error(`[${String(key)}] nestedValue:`, nestedValue);
+        console.error(
+          `[${String(key)}] is instance of schemaClass?`,
+          nestedValue instanceof fieldDef.schemaClass,
+        );
+      }
 
       const field = {
         value: nestedValue as ValueMap<F>[typeof key],
-
-        // Normalise `is` so `_fields` always stores a single function
         is: (() => {
           const rawIs = fieldDef.is as
             | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
@@ -357,18 +396,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
           }
           return rawIs;
         })(),
-
-        // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
-
-        // Preserve custom (de)serialisers when provided
         ...(fieldDef.serdes ? { serdes: fieldDef.serdes } : {}),
-
-        // Preserve nested SchemaClass sentinel so `validate()` and `toJSON()`
-        // can recurse.  When absent we deliberately omit the key so the
-        // resulting object remains minimal for primitive fields.
         ...(fieldDef.schemaClass ? { schemaClass: fieldDef.schemaClass } : {}),
       } as FieldType<ValueMap<F>[typeof key]>;
 
