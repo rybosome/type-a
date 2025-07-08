@@ -8,6 +8,8 @@ import type {
   Typeable,
   SchemaInstance,
 } from "@src/types";
+import type { EnumValuedWrapper } from "@src/types/enumValued";
+import { enumValuedBrand } from "@src/types/enumValued";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -89,6 +91,13 @@ export interface FieldType<T extends Typeable, R = T> {
    * instantiated, validated and serialised recursively.
    */
   schemaClass?: SchemaClass;
+
+  /**
+   * Optional list of allowed *literal* values (string or number) extracted
+   * from an enum via {@link enumValued}.  When present the `Schema` runtime
+   * validator ensures the field’s value is strictly one of the supplied list.
+   */
+  restrictedValues?: readonly unknown[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -156,14 +165,15 @@ export function Of<S extends SchemaClass>(
   schemaClass: S,
 ): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
 
+// 6. Enum-valued field shortcut (runtime wrapper)
+export function Of<E extends Record<string, string | number>>(
+  wrapper: import("@src/types/enumValued").EnumValuedWrapper<E>,
+): FieldWithoutDefault<E[keyof E]>;
+
 // 6. Generic implementation – internal body (not exposed)
 // NOTE: Default `R` to `T` so that calls without custom `serdes` inherit the
 //       same raw type as the value itself, matching the public overloads.
-export function Of<T extends Typeable, R = T>(opts?: {
-  default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-  serdes?: [(value: T) => R, (value: R) => T];
-}): FieldType<T, R> {
+export function Of<T extends Typeable, R = T>(opts?: unknown): FieldType<T, R> {
   /* -------------------------------------------------------------- */
   /* Nested Schema overload – single class argument                 */
   /* -------------------------------------------------------------- */
@@ -184,18 +194,46 @@ export function Of<T extends Typeable, R = T>(opts?: {
   }
 
   /* -------------------------------------------------------------- */
+  /* Enum-valued wrapper detection                                  */
+  /* -------------------------------------------------------------- */
+  // Runtime-detect the special wrapper produced by `enumValued(...)`.
+  if (
+    opts &&
+    typeof opts === "object" &&
+    opts !== null &&
+    enumValuedBrand in opts
+  ) {
+    const wrapper = opts as EnumValuedWrapper<any>;
+
+    return {
+      __t: undefined,
+      value: undefined,
+      restrictedValues: wrapper.values,
+    } as unknown as FieldType<any>;
+  }
+
+  /* -------------------------------------------------------------- */
   /* Primitive/flat field handling                                  */
   /* -------------------------------------------------------------- */
 
+  const maybeObj = opts as Record<string, unknown> | undefined;
+
   const base = {
     value: undefined as T | undefined,
-    ...(opts?.is ? { is: opts.is } : {}),
-    ...(opts?.serdes ? { serdes: opts.serdes } : {}),
+    ...(maybeObj && maybeObj["is"] !== undefined
+      ? { is: maybeObj["is"] as LogicalConstraint<NonNullable<T>> }
+      : {}),
+    ...(maybeObj && maybeObj["serdes"] !== undefined
+      ? { serdes: maybeObj["serdes"] as [(v: T) => R, (v: R) => T] }
+      : {}),
   };
 
   // Only attach the `default` property when the caller actually supplied one.
-  if (opts && "default" in opts && opts.default !== undefined) {
-    return { ...base, default: opts.default } as FieldType<T, R>;
+  if (maybeObj && "default" in maybeObj && maybeObj.default !== undefined) {
+    return { ...base, default: maybeObj.default as T | (() => T) } as FieldType<
+      T,
+      R
+    >;
   }
 
   return base as FieldType<T, R>;
@@ -370,6 +408,13 @@ export class Schema<F extends Fields> implements SchemaInstance {
         // can recurse.  When absent we deliberately omit the key so the
         // resulting object remains minimal for primitive fields.
         ...(fieldDef.schemaClass ? { schemaClass: fieldDef.schemaClass } : {}),
+
+        // Pass through `restrictedValues` when the schema was built from an
+        // `enumValued` wrapper so the runtime validator can enforce the
+        // allowed literals.
+        ...(fieldDef.restrictedValues
+          ? { restrictedValues: fieldDef.restrictedValues }
+          : {}),
       } as FieldType<ValueMap<F>[typeof key]>;
 
       fields[key] = field;
@@ -462,6 +507,22 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       // Cast `is` so we have a stable, callable signature
       const is = field.is as ((val: unknown) => true | string) | undefined;
+
+      /* ---------------------------------------------------------- */
+      /* Enum literal validation                                    */
+      /* ---------------------------------------------------------- */
+      if (
+        field.restrictedValues &&
+        field.value !== undefined &&
+        field.value !== null &&
+        !field.restrictedValues.includes(field.value as unknown)
+      ) {
+        errors.push(
+          `${key}: value must be one of ${field.restrictedValues
+            .map((v) => JSON.stringify(v))
+            .join(", ")}`,
+        );
+      }
 
       if (is && field.value !== undefined && field.value !== null) {
         const result = is(field.value as NonNullable<typeof field.value>);
