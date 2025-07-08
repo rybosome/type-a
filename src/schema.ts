@@ -186,9 +186,10 @@ export function Of<T extends Typeable, R = T>(opts?: {
   /* -------------------------------------------------------------- */
   /* Primitive/flat field handling                                  */
   /* -------------------------------------------------------------- */
+
   const base = {
     value: undefined as T | undefined,
-    is: opts?.is,
+    ...(opts?.is ? { is: opts.is } : {}),
     ...(opts?.serdes ? { serdes: opts.serdes } : {}),
   };
 

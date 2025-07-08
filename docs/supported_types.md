@@ -25,27 +25,30 @@ expect(p.validate()).toEqual([]);
 
 ## 2. Unions & Literals
 
-Type unions let you restrict a field to one of several literal values at **compile-time**. At runtime you can still attach a custom validator when extra guarantees are required.
+Type unions restrict a field to one of several literal values at **compile-time**. Attach the built-in `aLiteral()` helper when you also want **runtime** validation.
 
 ```typescript test
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, aLiteral } from "@rybosome/type-a";
 
 // "draft" | "published" | "archived"
 type PostState = "draft" | "published" | "archived";
 
 class Post extends Schema.from({
-  state: Of<PostState>({
-    // Optional runtime guard – ensures only the listed states are accepted
-    is: (s) =>
-      s === "draft" || s === "published" || s === "archived"
-        ? true
-        : "invalid state",
-  }),
+  // Compile-time union **and** runtime guard in one line ✨
+  state: Of<PostState>({ is: aLiteral("draft", "published", "archived") }),
 }) {}
 
 const post = new Post({ state: "draft" });
 
 expect(post.state).toBe("draft");
+
+// Bad input returns a clear validation message
+const bad = new Post({ state: "archived" });
+(bad as any).state = "deleted"; // bypass TypeScript to demo runtime failure
+const errs = bad.validate();
+expect(errs[0]).toBe(
+  "state: deleted is not one of [draft, published, archived]",
+);
 ```
 
 ## 3. Nullability & Undefined
