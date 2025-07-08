@@ -28,7 +28,18 @@ type SchemaClass = {
 /**
  * A field description used by Schema.
  */
-export interface FieldType<T extends Typeable> {
+/**
+ * Describes a Schema property at both compile-time (for type inference/validation)
+ * and runtime (for parsing/validation/serialization).
+ *
+ * @typeParam T   The *in-memory* typed representation used by callers once the
+ *                value has been parsed/deserialised.
+ * @typeParam R   The *raw* external representation accepted by the constructor
+ *                **and** produced by the optional `serializer`.  When no
+ *                custom serialisation is supplied `R` defaults to `T` so
+ *                existing call-sites continue to compile unchanged.
+ */
+export interface FieldType<T extends Typeable, R = T> {
   /**
    * Compile-time marker that preserves the **exact** generic parameter `T`
    * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
@@ -64,6 +75,16 @@ export interface FieldType<T extends Typeable> {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 
   /**
+   * Optional [serializer, deserializer] tuple allowing callers to customise
+   * how a value is converted **to** and **from** its raw JSON-compatible
+   * representation.
+   *
+   *   - *Serializer*:   `T → R`   (e.g. `Date → string`)
+   *   - *Deserializer*: `R → T`   (e.g. `string → Date`)
+   */
+  serdes?: [(value: T) => R, (value: R) => T];
+
+  /**
    * Optional nested Schema class. When present this field is automatically
    * instantiated, validated and serialised recursively.
    */
@@ -75,23 +96,21 @@ export interface FieldType<T extends Typeable> {
 /* ------------------------------------------------------------------ */
 
 /**
- * Helper aliases used by the `Of<T>` overloads below.
- *  • `FieldWithDefault`  – `default` is **required** (present)
- *  • `FieldWithoutDefault` – `default` is **optional** and restricted to
- *    `undefined`, making it *absent* for assignability checks.
+ * Helper aliases used by the `Of<T>` overloads below.  They enforce whether
+ * the caller supplied a `default` as well as whether a `[serializer,
+ * deserializer]` tuple is present.
  */
-type FieldWithDefault<T extends Typeable> = FieldType<T> & {
+type FieldWithDefault<T extends Typeable, R = T> = FieldType<T, R> & {
   default: T | (() => T);
 };
 
 /**
  * Field descriptor *without* a default.
- *
- * By omitting the `default` key completely, the conditional type used in
- * `InputValueMap` (`F[K] extends { default: any }`) correctly recognises that
- * this field lacks a default and may therefore be required.
  */
-type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
+type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
+  FieldType<T, R>,
+  "default"
+>;
 
 /**
  * Create a field descriptor.
@@ -100,20 +119,49 @@ type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
  * Overload #2 – without default value (opts provided)
  * Overload #3 – nested Schema class
  */
+// ──────────────────────────────────────────────────────────────────────────
+// Overload signatures
+// ──────────────────────────────────────────────────────────────────────────
+
+// 1. Primitive field **without** default/serdes
 export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
-export function Of<T extends Typeable>(opts?: {
+
+// 2. Primitive field **with default** (no serdes)
+export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
+
+// 3. Primitive field with custom serdes **without default**
+export function Of<T extends Typeable, R = unknown>(opts: {
+  serdes: [(value: T) => R, (value: R) => T];
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldWithoutDefault<T, R> & {
+  serdes: [(value: T) => R, (value: R) => T];
+};
+
+// 4. Primitive field with custom serdes **with default**
+export function Of<T extends Typeable, R = unknown>(opts: {
+  serdes: [(value: T) => R, (value: R) => T];
+  default: T | (() => T);
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldWithDefault<T, R> & {
+  serdes: [(value: T) => R, (value: R) => T];
+};
+
+// 5. Nested Schema class shortcut
 export function Of<S extends SchemaClass>(
   schemaClass: S,
 ): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
-export function Of<T extends Typeable>(opts?: {
+
+// 6. Generic implementation – internal body (not exposed)
+export function Of<T extends Typeable, R = unknown>(opts?: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldType<T> {
+  serdes?: [(value: T) => R, (value: R) => T];
+}): FieldType<T, R> {
   /* -------------------------------------------------------------- */
   /* Nested Schema overload – single class argument                 */
   /* -------------------------------------------------------------- */
@@ -139,14 +187,15 @@ export function Of<T extends Typeable>(opts?: {
   const base = {
     value: undefined as T | undefined,
     is: opts?.is,
+    ...(opts?.serdes ? { serdes: opts.serdes } : {}),
   };
 
   // Only attach the `default` property when the caller actually supplied one.
   if (opts && "default" in opts && opts.default !== undefined) {
-    return { ...base, default: opts.default } as FieldType<T>;
+    return { ...base, default: opts.default } as FieldType<T, R>;
   }
 
-  return base as FieldType<T>;
+  return base as FieldType<T, R>;
 }
 
 // --------------------
@@ -199,7 +248,14 @@ type InputType<F> = F extends { schemaClass: infer S }
   ? S extends SchemaClass
     ? InputOf<S>
     : never
-  : ValueType<F>;
+  : // Custom raw type extracted directly from the `[serializer, deserializer]` tuple
+    F extends {
+        serdes: [(value: any) => infer Raw, (value: infer Raw) => any];
+      }
+    ? Raw
+    : F extends FieldType<any, infer R>
+      ? R
+      : never;
 
 type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;
@@ -258,16 +314,30 @@ export class Schema<F extends Fields> implements SchemaInstance {
             ? (def as () => unknown)()
             : def;
 
+      // Apply custom deserialiser (raw → T) when provided **and** the caller
+      // supplied the value explicitly.  We intentionally skip deserialisation
+      // when a `default` is used because defaults are already typed as `T`.
+      const deserialised = (() => {
+        if (!fieldDef.serdes) return value;
+        if (supplied === undefined) return value; // default in play – already T
+        if (value === undefined || value === null) return value;
+        return (
+          fieldDef.serdes as [(v: unknown) => unknown, (v: unknown) => unknown]
+        )[1](value as any);
+      })();
+
       // Handle nested Schema instantiation when necessary
       const nestedValue = (() => {
         if (
           fieldDef.schemaClass == null ||
-          value === undefined ||
-          value === null
+          deserialised === undefined ||
+          deserialised === null
         )
-          return value;
+          return deserialised;
         const Ctor = fieldDef.schemaClass;
-        return value instanceof Ctor ? value : new Ctor(value as any);
+        return deserialised instanceof Ctor
+          ? deserialised
+          : new Ctor(deserialised as any);
       })();
 
       const field = {
@@ -289,6 +359,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
+
+        // Preserve custom (de)serialisers when provided
+        ...(fieldDef.serdes ? { serdes: fieldDef.serdes } : {}),
 
         // Preserve nested SchemaClass sentinel so `validate()` and `toJSON()`
         // can recurse.  When absent we deliberately omit the key so the
@@ -459,10 +532,15 @@ export class Schema<F extends Fields> implements SchemaInstance {
     const json = {} as ValueMap<F>;
     for (const key in this._fields) {
       const field = this._fields[key];
-      const raw =
-        field.schemaClass && field.value != null
-          ? (field.value as Schema<any>).toJSON()
-          : field.value;
+      let raw: unknown;
+      if (field.schemaClass && field.value != null) {
+        raw = (field.value as Schema<any>).toJSON();
+      } else if (field.serdes && field.value != null) {
+        raw = field.serdes[0](field.value as any);
+      } else {
+        raw = field.value;
+      }
+
       // Recursively serialise (handles Map & nested objects)
       (json as Record<string, unknown>)[key] = serialise(raw);
     }
