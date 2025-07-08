@@ -178,8 +178,8 @@ export function Of<S extends SchemaClass>(
   opts: {
     default?: OutputOf<S>[] | (() => OutputOf<S>[]);
     is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
+      | LogicalConstraint<NonNullable<OutputOf<S>[]>>
+      | LogicalConstraint<NonNullable<OutputOf<S>[]>>[];
   },
 ): FieldType<OutputOf<S>[]> & { schemaClass: S };
 
@@ -577,12 +577,12 @@ export class Schema<F extends Fields> implements SchemaInstance {
       const is = field.is as ((val: unknown) => true | string) | undefined;
 
       if (is && field.value !== undefined && field.value !== null) {
-        // For arrays apply validator element-wise so error paths include index
         if (Array.isArray(field.value)) {
-          field.value.forEach((elem: unknown, idx: number) => {
-            const res = is(elem);
-            if (res !== true) errors.push(`${key}[${idx}]: ${res}`);
-          });
+          // Invoke the validator exactly once with the full array so callers
+          // can decide their own any/all/none semantics.  Index-specific error
+          // construction is left to custom validators.
+          const result = is(field.value);
+          if (result !== true) errors.push(`${key}: ${result}`);
         } else {
           const result = is(field.value as NonNullable<typeof field.value>);
           if (result !== true) errors.push(`${key}: ${result}`);

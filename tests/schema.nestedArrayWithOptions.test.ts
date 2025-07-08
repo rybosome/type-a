@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { Schema, Of } from "@rybosome/type-a";
 
-// Custom validator that ensures the timestamp is positive.
-const positiveTimestamp = (val: LoginAttempt): true | string =>
-  val.unixTimestampMs >= 0 || "timestamp must be positive";
+// Custom validator that ensures all timestamps in the array are positive.
+const positiveTimestamp = (arr: LoginAttempt[]): true | string =>
+  arr.every((v) => v.unixTimestampMs >= 0) || "timestamp must be positive";
 
 class LoginAttempt extends Schema.from({
   success: Of<boolean>(),
@@ -33,13 +33,11 @@ describe("Schema – nested schema arrays with options", () => {
     expect(u.validate()).toEqual([]);
   });
 
-  it("surfaces validation errors with correct indexed path", () => {
+  it("surfaces validation errors with correct path", () => {
     const u = new User({
       loginAttempts: [{ success: true, unixTimestampMs: -1 }],
     });
 
-    expect(u.validate()).toEqual([
-      "loginAttempts[0]: timestamp must be positive",
-    ]);
+    expect(u.validate()).toEqual(["loginAttempts: timestamp must be positive"]);
   });
 });
