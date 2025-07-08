@@ -2,7 +2,7 @@
 
 This document captures the **final design** for tightening `Of<T>` so that the
 runtime–type validator (`is`) becomes **mandatory** whenever `T` is a _narrow
-primitive union_ (aka “literal-union”).  It supersedes the exploratory notes
+primitive union_ (aka “literal-union”). It supersedes the exploratory notes
 posted in issue #44 and incorporates the decisions recorded on **July 8, 2025**.
 
 > **Status** · _Accepted_ — implementation tracked in
@@ -10,7 +10,7 @@ posted in issue #44 and incorporates the decisions recorded on **July 8, 2025**.
 
 ---
 
-## 1  Current shape of `Schema.from` and `Of<T>`
+## 1 Current shape of `Schema.from` and `Of<T>`
 
 `Schema.from()` is a simple factory that stamps the supplied _fields object_
 onto a generated subclass. It is **unaffected** by this proposal.
@@ -32,7 +32,9 @@ same _options_ object:
 The optionality of `is` makes it legal to write:
 
 ```ts
-state: Of<PostState>({ /* no is */ });
+state: Of<PostState>({
+  /* no is */
+});
 ```
 
 even when `PostState` is the literal union
@@ -47,35 +49,47 @@ the type-system_ and make the behaviour explicit.
 
 ---
 
-## 2  Type-level detection of “literal union” and conditional requirement of `is`
+## 2 Type-level detection of “literal union” and conditional requirement of `is`
 
 ### 2.1 Terminology
 
-* **Wide** primitive  — the canonical base type (`string`, `number`, `boolean`).
-* **Narrow** primitive — a type that _extends_ one of those bases **without**
+- **Wide** primitive — the canonical base type (`string`, `number`, `boolean`).
+- **Narrow** primitive — a type that _extends_ one of those bases **without**
   containing the base itself – i.e. every constituent is a literal.
 
 ### 2.2 Utility types
 
 ```ts
 /* Narrow-primitive detectors */
-type NarrowString<T>  = T extends string  ? (string  extends T ? never : T) : never;
-type NarrowNumber<T>  = T extends number  ? (number  extends T ? never : T) : never;
-type NarrowBoolean<T> = T extends boolean ? (boolean extends T ? never : T) : never;
+type NarrowString<T> = T extends string
+  ? string extends T
+    ? never
+    : T
+  : never;
+type NarrowNumber<T> = T extends number
+  ? number extends T
+    ? never
+    : T
+  : never;
+type NarrowBoolean<T> = T extends boolean
+  ? boolean extends T
+    ? never
+    : T
+  : never;
 
 /* Does T contain *only* literal primitives? */
 type IsLiteralPrimitiveUnion<T> =
   | NarrowString<T>
   | NarrowNumber<T>
   | NarrowBoolean<T> extends never
-      ? false
-      : true;
+  ? false
+  : true;
 ```
 
 ```ts
-IsLiteralPrimitiveUnion<"a" | "b">   // true
-IsLiteralPrimitiveUnion<string>        // false
-IsLiteralPrimitiveUnion<42 | number>   // false
+IsLiteralPrimitiveUnion<"a" | "b">; // true
+IsLiteralPrimitiveUnion<string>; // false
+IsLiteralPrimitiveUnion<42 | number>; // false
 ```
 
 ### 2.3 Conditional option shape
@@ -83,13 +97,17 @@ IsLiteralPrimitiveUnion<42 | number>   // false
 ```ts
 type IsKey<T> =
   IsLiteralPrimitiveUnion<T> extends true
-    ? { // literal union – must supply
-        is: LogicalConstraint<NonNullable<T>> |
-            LogicalConstraint<NonNullable<T>>[];
+    ? {
+        // literal union – must supply
+        is:
+          | LogicalConstraint<NonNullable<T>>
+          | LogicalConstraint<NonNullable<T>>[];
       }
-    : { // wide type – still optional
-        is?: LogicalConstraint<NonNullable<T>> |
-             LogicalConstraint<NonNullable<T>>[];
+    : {
+        // wide type – still optional
+        is?:
+          | LogicalConstraint<NonNullable<T>>
+          | LogicalConstraint<NonNullable<T>>[];
       };
 ```
 
@@ -99,12 +117,12 @@ Every existing `Of<T>` overload becomes:
 
 ```ts
 export function Of<T extends Typeable, R = T>(
-  opts?: (BaseOpts<T, R> & IsKey<T>)
+  opts?: BaseOpts<T, R> & IsKey<T>,
 ): FieldType<T, R>;
 ```
 
 where `BaseOpts<T, R>` captures the remainder of the option properties
-(`default`, `serdes`, …).  The call-site experience:
+(`default`, `serdes`, …). The call-site experience:
 
 ```ts
 Of<PostState>({});            // 🟥 compile-time error – missing `is`
@@ -117,29 +135,11 @@ an `is` property.
 
 ---
 
-## 3  Helper: `aLiteral<T>()`
-
-```ts
-/**
-* Build a runtime guard for a literal primitive union.
-*
-*   state: Of<PostState>({ is: aLiteral<PostState>() }),
-*/
-export function aLiteral<T extends string | number | boolean>(): (
-  val: T
-) => true | `${T} is not one of ${string}`;
-```
-
-`aLiteral<T>()` uses the same **heuristic guard-generator** that currently
-lives inside `Of<T>`. No code-generation or build-time transform is planned.
-
----
-
-## 4  Backward compatibility & migration
+## 3 Backward compatibility & migration
 
 1. **Wide primitives / objects / nested schemas** ▶︎ _no change_.
 2. **Existing literal-union fields without an `is`** ▶︎ fail to compile.
-   *Migration*: import `aLiteral` and supply it:
+   _Migration_: import `aLiteral` and supply it:
 
    ```ts
    import { aLiteral } from "@rybosome/type-a";
@@ -152,29 +152,29 @@ lives inside `Of<T>`. No code-generation or build-time transform is planned.
 
 ---
 
-## 5  Edge cases & limitations (final)
+## 4 Edge cases & limitations (final)
 
-| Case | Behaviour | Rationale |
-|------|-----------|-----------|
-| **Single literal** – e.g. `"only"` | `is` **required** | Still a narrow type. |
-| **Mixed literal kinds** – e.g. `"a" \| 1` | `is` **required** | Detected via composite of string/number checks. |
+| Case                                                              | Behaviour                               | Rationale                                                                                                                      |
+| ----------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Single literal** – e.g. `"only"`                                | `is` **required**                       | Still a narrow type.                                                                                                           |
+| **Mixed literal kinds** – e.g. `"a" \| 1`                         | `is` **required**                       | Detected via composite of string/number checks.                                                                                |
 | **Union that also contains the wide type** – e.g. `"a" \| string` | Treated as **wide** ➝ `is` **optional** | `string extends T` evaluates to `true`, so type isn’t narrow. Docs _discourage_ this because runtime guard becomes impossible. |
-| **Template-literal types** – e.g. <code>`user-${number}`</code> | Out of scope ➝ `is` **optional** | Complex to detect; can be revisited later. |
-| **Non-primitive literals** – e.g. `123n` (`bigint`) | Out of scope ➝ `is` **optional** | `bigint` support deferred. |
-| **Nested schema overload** | Unchanged | `is` not part of its signature. |
+| **Template-literal types** – e.g. <code>`user-${number}`</code>   | Out of scope ➝ `is` **optional**        | Complex to detect; can be revisited later.                                                                                     |
+| **Non-primitive literals** – e.g. `123n` (`bigint`)               | Out of scope ➝ `is` **optional**        | `bigint` support deferred.                                                                                                     |
+| **Nested schema overload**                                        | Unchanged                               | `is` not part of its signature.                                                                                                |
 
 ---
 
-## 6  Resolved questions
+## 5 Resolved questions
 
-| Topic | Decision |
-|-------|----------|
-| **Error messaging** | The compile-time _missing-`is`_ diagnostic must include: _“Tip: use `aLiteral<T>()` to generate a validator automatically.”_  This shows up in the IDE tooltip / TS error details. |
-| **Runtime guard generator** | **No new code-generation step.** `aLiteral<T>()` simply wraps the existing heuristic from the current `Of<T>` implementation. |
+| Topic                       | Decision                                                                                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Error messaging**         | The compile-time _missing-`is`_ diagnostic must include: _“Tip: use `aLiteral<T>()` to generate a validator automatically.”_ This shows up in the IDE tooltip / TS error details. |
+| **Runtime guard generator** | **No new code-generation step.** `aLiteral<T>()` simply wraps the existing heuristic from the current `Of<T>` implementation.                                                     |
 
 ---
 
-## 7  Open items
+## 6 Open items
 
-None.  Any further clarifications can be appended as follow-up RFCs if real-world
+None. Any further clarifications can be appended as follow-up RFCs if real-world
 usage uncovers additional edge cases.

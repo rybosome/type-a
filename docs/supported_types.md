@@ -33,10 +33,15 @@ import { Schema, Of } from "@rybosome/type-a";
 // "draft" | "published" | "archived"
 type PostState = "draft" | "published" | "archived";
 
+// Simple helper to validate the literal union at runtime
+const isPostState = (s: PostState) =>
+  s === "draft" || s === "published" || s === "archived"
+    ? true
+    : `${s} is not a valid PostState`;
+
 class Post extends Schema.from({
-  // No `is` callback needed – Type-A automatically enforces the literal union
-  // at runtime as well as compile-time.
-  state: Of<PostState>(),
+  // Explicit `is` callback required for literal unions
+  state: Of<PostState>({ is: isPostState }),
 }) {}
 
 const post = new Post({ state: "draft" });
