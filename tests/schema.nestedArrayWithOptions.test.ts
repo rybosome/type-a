@@ -20,8 +20,8 @@ describe("Schema – nested schema arrays with options", () => {
   it("constructs and validates instances created from schema instances", () => {
     const u = new User({
       loginAttempts: [
-        new LoginAttempt({ success: true, unixTimestampMs: 123 }),
-        new LoginAttempt({ success: false, unixTimestampMs: 456 }),
+        { success: true, unixTimestampMs: 123 },
+        { success: false, unixTimestampMs: 456 },
       ],
     });
 
@@ -35,7 +35,7 @@ describe("Schema – nested schema arrays with options", () => {
 
   it("surfaces validation errors with correct path", () => {
     const u = new User({
-      loginAttempts: [new LoginAttempt({ success: true, unixTimestampMs: -1 })],
+      loginAttempts: [{ success: true, unixTimestampMs: -1 }],
     });
 
     expect(u.validate()).toEqual(["loginAttempts: timestamp must be positive"]);

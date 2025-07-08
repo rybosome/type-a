@@ -24,12 +24,12 @@ describe("Schema nesting", () => {
   it("instantiates with nested schema instances and exposes nested fields", () => {
     const u = new User({
       name: "Jane Doe",
-      address: new Address({
+      address: {
         firstLine: "123 Fake Street",
         city: "Cityville",
         state: "Nowhere",
         zip: 12345,
-      }),
+      },
     });
 
     expect(u.address).toBeInstanceOf(Address);
@@ -40,12 +40,12 @@ describe("Schema nesting", () => {
   it("performs recursive validation when nested schema is invalid", () => {
     const bad = new User({
       name: "Bob",
-      address: new Address({
+      address: {
         firstLine: "", // fails nonEmpty
         city: "", // fails nonEmpty
         state: "", // fails nonEmpty
         zip: 50, // fails atLeast(10000)
-      }),
+      },
     });
 
     const errs = bad.validate();

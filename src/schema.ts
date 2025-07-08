@@ -12,6 +12,84 @@ import type {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Run-time shape of a `Schema` subclass – constructor plus its compiled
+ * `_schema` descriptor.  Kept internal to avoid leaking as part of the
+ * public API.
+ */
+type SchemaClass = {
+  new (input: any): SchemaInstance;
+  _schema: Fields;
+};
+
+/**
+ * Global registry of every `Schema` subclass created via `Schema.from()`.
+ *
+ * The registry is used to heuristically resolve which constructor should be
+ * used when the caller supplies *plain JSON objects* (rather than fully
+ * instantiated nested `Schema` instances) while building parent objects.
+ *
+ * Registration happens exactly once per subclass, at the bottom of the
+ * `Schema.from()` factory.
+ */
+const SCHEMA_REGISTRY: SchemaClass[] = [];
+
+/* ------------------------------------------------------------------ */
+/* Helper – attempt to materialise nested Schema instances              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Try to convert a raw value into a `Schema` instance by matching its shape
+ * against every registered `Schema` subclass.
+ *
+ * Heuristics:
+ *   1. Values that are already `Schema` instances are returned untouched.
+ *   2. `null` / `undefined` are returned as-is.
+ *   3. Arrays are processed element-wise with the same logic.
+ *   4. Plain objects (prototype is `Object.prototype` or `null`) are compared
+ *      against the field set of each known subclass.  The **first** constructor
+ *      whose keys are *all* present on the raw object is deemed a match and
+ *      `new Ctor(raw)` is returned.
+ *   5. All other inputs are returned unchanged.
+ */
+function materialiseNested(raw: unknown): unknown {
+  if (raw == null) return raw;
+
+  if (Array.isArray(raw)) return raw.map(materialiseNested);
+
+  if ((raw as any)?.__isSchemaInstance) return raw;
+
+  if (typeof raw === "object") {
+    const proto = Object.getPrototypeOf(raw);
+    const isPlain = proto === Object.prototype || proto === null;
+    if (!isPlain) return raw;
+
+    const rawKeys = Object.keys(raw as Record<string, unknown>);
+
+    // Iterate backwards so that *most recently defined* subclasses take
+    // precedence over earlier/base classes when multiple candidates match the
+    // same shape.
+    for (let i = SCHEMA_REGISTRY.length - 1; i >= 0; i--) {
+      const Ctor = SCHEMA_REGISTRY[i]!;
+      const schemaKeys = Object.keys(Ctor._schema);
+
+      // We consider it a match when *all keys from the raw object* exist in
+      // the candidate Schema's definition. This is deliberately lenient so
+      // callers may omit optional fields without preventing instantiation.
+      if (rawKeys.every((k) => schemaKeys.includes(k))) {
+        try {
+          return new Ctor(raw as any);
+        } catch {
+          // Ignore and continue – shape matched but constructor threw (likely
+          // due to validation).  Another subclass may still succeed.
+        }
+      }
+    }
+  }
+
+  return raw;
+}
+
+/**
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
 // (Removed) SchemaClass runtime helper and nested-instantiation code have
@@ -181,10 +259,6 @@ type Fields = Record<string, FieldType<any>>;
 
 // --------------------
 // Utility – extract the *value type* for a field descriptor.
-//
-// When the field references a nested schema we peel off the SchemaClass and
-// decide between the single-instance vs array form by inspecting the generic
-// parameter captured in the surrounding `FieldType`.
 // --------------------
 
 type ValueType<F> = F extends FieldType<infer V> ? V : never;
@@ -192,15 +266,19 @@ type ValueType<F> = F extends FieldType<infer V> ? V : never;
 type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
 
 /**
+ * Determine the *constructor-input* type accepted by a field. When the field
+ * stores a nested `Schema` (single value **or** array) we accept either the
+ * fully-materialised instance **or** the plain JSON object(s) that can be used
+ * to build such an instance.
+ */
+
+/**
  * Keys that are optional in the constructor's input object.
- *
- * A key is optional when the field descriptor provides a `default`, or the declared
- * value type already allows `undefined`.
  */
 type OptionalKeys<F extends Fields> = {
   [K in keyof F]: F[K] extends { default: any }
     ? K
-    : undefined extends ValueMap<F>[K]
+    : undefined extends InputType<F[K]>
       ? K
       : never;
 }[keyof F];
@@ -211,22 +289,26 @@ type OptionalKeys<F extends Fields> = {
 type RequiredKeys<F extends Fields> = {
   [K in keyof F]: F[K] extends { default: any }
     ? never
-    : undefined extends ValueMap<F>[K]
+    : undefined extends InputType<F[K]>
       ? never
       : K;
 }[keyof F];
 
 /**
- * Constructor input map:
- *  • Keys in `RequiredKeys` are mandatory.
- *  • Keys in `OptionalKeys` may be omitted.
+ * Constructor input map.
  */
 type InputType<F> = F extends {
   serdes: [(value: any) => infer Raw, (value: infer Raw) => any];
 }
   ? Raw
-  : F extends FieldType<any, infer R>
-    ? R
+  : F extends FieldType<infer V, infer R>
+    ? V extends SchemaInstance
+      ? V | Record<string, unknown>
+      : V extends Array<infer E>
+        ? E extends SchemaInstance
+          ? (E | Record<string, unknown>)[]
+          : R
+        : R
     : never;
 
 type InputValueMap<F extends Fields> = {
@@ -298,9 +380,13 @@ export class Schema<F extends Fields> implements SchemaInstance {
         )[1](value as any);
       })();
 
-      // No automatic instantiation – callers must supply real `Schema`
-      // instances for nested fields.  The value is therefore used as-is.
-      const nestedValue = deserialised as ValueMap<F>[typeof key];
+      // Automatically instantiate nested Schema subclasses when the supplied
+      // value is a *plain object* (or an array of plain objects).  The global
+      // registry allows us to map shapes → constructors without requiring the
+      // caller to duplicate type information via value parameters.
+      const nestedValue = materialiseNested(
+        deserialised,
+      ) as ValueMap<F>[typeof key];
 
       const field = {
         value: nestedValue as ValueMap<F>[typeof key],
@@ -347,6 +433,12 @@ export class Schema<F extends Fields> implements SchemaInstance {
   static from<F extends Record<string, FieldType<any>>>(schema: F) {
     class ModelWithSchema extends Schema<F> {
       static _schema = schema;
+    }
+
+    // Register the subclass exactly once (protect against repeated calls when
+    // `Schema.from()` is used in mixin-like patterns).
+    if (!SCHEMA_REGISTRY.includes(ModelWithSchema as unknown as SchemaClass)) {
+      SCHEMA_REGISTRY.push(ModelWithSchema as unknown as SchemaClass);
     }
 
     return ModelWithSchema as {
@@ -535,5 +627,17 @@ export class Schema<F extends Fields> implements SchemaInstance {
       (json as Record<string, unknown>)[key] = serialise(raw);
     }
     return json;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Static initialiser – register every concrete subclass               */
+  /* ------------------------------------------------------------------ */
+
+  static {
+    // Exclude the abstract base class itself
+    if (this !== Schema) {
+      const self = this as unknown as SchemaClass;
+      if (!SCHEMA_REGISTRY.includes(self)) SCHEMA_REGISTRY.push(self);
+    }
   }
 }
