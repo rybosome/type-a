@@ -251,10 +251,9 @@ type InputType<F> = F extends { schemaClass: infer S }
     ? InputOf<S>
     : never
   : // Custom raw type extracted directly from the `[serializer, deserializer]` tuple
-    // Infer `Raw` from the **serializer’s return type** only.  Avoids the
-    // contravariance trap where `infer` on a function parameter collapses to
-    // `never`.
-    F extends { serdes: [(...args: any) => infer Raw, any] }
+    F extends {
+        serdes: [(value: any) => infer Raw, (value: infer Raw) => any];
+      }
     ? Raw
     : F extends FieldType<any, infer R>
       ? R
