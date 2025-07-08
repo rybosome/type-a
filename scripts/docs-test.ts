@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 
 // Paths
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const DOCS_DIR = path.join(PROJECT_ROOT, "docs");
+const DOCS_DIR = path.join(PROJECT_ROOT, "");
 const OUT_DIR = path.join(PROJECT_ROOT, ".docs-tests");
 const TESTS_SUBDIR = path.join(OUT_DIR, "tests");
 
