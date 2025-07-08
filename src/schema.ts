@@ -123,18 +123,40 @@ type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
 // Overload signatures
 // ──────────────────────────────────────────────────────────────────────────
 
-// 1. Primitive field **without** default/serdes
+// 1. Nested Schema (single or array) – type information derived solely from generic `T`
+export function Of<
+  S extends SchemaClass,
+  T extends OutputOf<S> | OutputOf<S>[],
+>(opts: {
+  schemaClass: S;
+  default?: T | (() => T);
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldType<T> & { schemaClass: S };
+
+// Fallback nested overload with relaxed type constraints to improve inference
+// when the stricter generic relationship is not easily satisfied by the
+// compiler (e.g. unions, optional, nullable).  **Note**: because the type
+// parameter `T` is supplied explicitly by the caller it remains the sole source
+// of compile-time information – the runtime `schemaClass` is used only for
+// instantiation.
+export function Of<T extends Typeable>(opts: {
+  schemaClass: SchemaClass;
+  default?: T | (() => T);
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldType<T> & { schemaClass: SchemaClass };
+
+// 2. Primitive field **without** default/serdes
 export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
 
-// 2. Primitive field **with default** (no serdes)
+// 3. Primitive field **with default** (no serdes)
 export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
 
-// 3. Primitive field with custom serdes **without default**
+// 4. Primitive field with custom serdes **without default**
 export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
@@ -142,7 +164,7 @@ export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
 };
 
-// 4. Primitive field with custom serdes **with default**
+// 5. Primitive field with custom serdes **with default**
 export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
   default: T | (() => T);
@@ -151,132 +173,34 @@ export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
 };
 
-// 5. Nested Schema class shortcut
-export function Of<S extends SchemaClass>(
-  schemaClass: S,
-): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
+// -----------------------------------------------------------------------
+// Generic implementation – internal body (not exposed)
+// -----------------------------------------------------------------------
 
-// 6. Nested Schema **array** shortcut – allows `Of([User])`
-export function Of<S extends SchemaClass>(
-  schemaClass: [S],
-): FieldWithoutDefault<OutputOf<S>[]> & { schemaClass: S };
+export function Of<T extends Typeable, R = T>(opts?: {
+  // Common
+  default?: T | (() => T);
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 
-// 7. Nested Schema class **with options**
-export function Of<S extends SchemaClass>(
-  schemaClass: S,
-  opts: {
-    default?: OutputOf<S> | (() => OutputOf<S>);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
-  },
-): FieldType<OutputOf<S>> & { schemaClass: S };
+  // Optional (de)serialisers – primitive fields only
+  serdes?: [(value: T) => R, (value: R) => T];
 
-// 8. Nested Schema **array** with options
-export function Of<S extends SchemaClass>(
-  schemaClass: [S],
-  opts: {
-    default?: OutputOf<S>[] | (() => OutputOf<S>[]);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>[]>>
-      | LogicalConstraint<NonNullable<OutputOf<S>[]>>[];
-  },
-): FieldType<OutputOf<S>[]> & { schemaClass: S };
-
-// 6. Generic implementation – internal body (not exposed)
-// NOTE: Default `R` to `T` so that calls without custom `serdes` inherit the
-//       same raw type as the value itself, matching the public overloads.
-export function Of<T extends Typeable, R = T>(
-  ...args:
-    | [
-        // Primitive field OR options-only call signature
-        {
-          default?: T | (() => T);
-          is?:
-            | LogicalConstraint<NonNullable<T>>
-            | LogicalConstraint<NonNullable<T>>[];
-          serdes?: [(value: T) => R, (value: R) => T];
-        }?,
-      ]
-    | [SchemaClass]
-    | [SchemaClass, any]
-    | [[SchemaClass]]
-    | [[SchemaClass], any]
-): FieldType<T, R> {
-  /* -------------------------------------------------------------- */
-  /* Helper to build FieldType with optional/defaults               */
-  /* -------------------------------------------------------------- */
-  const makeField = <V extends Typeable>(
-    extra: Partial<FieldType<V>>,
-    opts:
-      | {
-          default?: V | (() => V);
-          is?:
-            | LogicalConstraint<NonNullable<V>>
-            | LogicalConstraint<NonNullable<V>>[];
-        }
-      | undefined,
-  ): FieldType<V> => {
-    const base: FieldType<V> = {
-      __t: undefined as unknown as V,
-      value: undefined as unknown as V,
-      ...extra,
-    } as FieldType<V>;
-
-    if (opts?.is) (base as any).is = opts.is;
-    if (opts && "default" in opts && opts.default !== undefined) {
-      (base as any).default = opts.default;
-    }
-    return base;
-  };
-
-  /* -------------------------------------------------------------- */
-  /* Case A – args[0] is a SchemaClass constructor (single value)   */
-  /* -------------------------------------------------------------- */
-  if (
-    args.length > 0 &&
-    typeof args[0] === "function" &&
-    "_schema" in args[0]
-  ) {
-    const schemaClass = args[0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-    return makeField({ schemaClass }, opts) as unknown as FieldType<T, R>;
-  }
-
-  /* -------------------------------------------------------------- */
-  /* Case B – args[0] is an array with a single SchemaClass         */
-  /* -------------------------------------------------------------- */
-  if (
-    args.length > 0 &&
-    Array.isArray(args[0]) &&
-    args[0].length === 1 &&
-    typeof args[0][0] === "function" &&
-    "_schema" in args[0][0]
-  ) {
-    const schemaClass = args[0][0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-    // V becomes OutputOf<S>[] due to generic inference on makeField call
-    return makeField({ schemaClass }, opts) as unknown as FieldType<T, R>;
-  }
-
-  /* -------------------------------------------------------------- */
-  /* Case C – primitive/flat field                                  */
-  /* -------------------------------------------------------------- */
-  const opts = (args[0] ?? undefined) as Parameters<typeof makeField>[1] & {
-    serdes?: [(value: T) => R, (value: R) => T];
-  };
-
-  // Build base primitive field including serdes when present
+  // Runtime constructor needed for nested schema support.  **Not** used for
+  // type inference – callers must supply the generic parameter explicitly.
+  schemaClass?: SchemaClass;
+}): FieldType<T, R> {
   const base: FieldType<T, R> = {
     __t: undefined as unknown as T,
     value: undefined as unknown as T,
-    ...(opts?.is ? { is: opts.is } : {}),
-    ...(opts?.serdes ? { serdes: opts.serdes } : {}),
   } as FieldType<T, R>;
 
-  if (opts && "default" in opts && opts.default !== undefined) {
-    (base as any).default = opts.default;
-  }
+  if (!opts) return base;
+
+  // Copy recognised options when present.
+  if (opts.is) (base as any).is = opts.is;
+  if (opts.default !== undefined) (base as any).default = opts.default;
+  if (opts.serdes) (base as any).serdes = opts.serdes;
+  if (opts.schemaClass) (base as any).schemaClass = opts.schemaClass;
 
   return base;
 }

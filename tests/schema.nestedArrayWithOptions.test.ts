@@ -13,7 +13,10 @@ class LoginAttempt extends Schema.from({
 
 class User extends Schema.from({
   // Demonstrate array-of-schema support + custom validator via `is`
-  loginAttempts: Of([LoginAttempt], { is: positiveTimestamp }),
+  loginAttempts: Of<LoginAttempt[]>({
+    schemaClass: LoginAttempt,
+    is: positiveTimestamp,
+  }),
 }) {}
 
 describe("Schema – nested schema arrays with options", () => {

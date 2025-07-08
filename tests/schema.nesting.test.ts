@@ -17,7 +17,7 @@ describe("Schema nesting", () => {
 
   class User extends Schema.from({
     name: Of<string>({ is: nonEmpty }),
-    address: Of(Address),
+    address: Of<Address>({ schemaClass: Address }),
   }) {}
 
   it("instantiates with nested object and exposes nested fields", () => {
@@ -71,12 +71,12 @@ describe("Schema nesting", () => {
   it("supports deeply-nested structures", () => {
     class Company extends Schema.from({
       name: Of<string>({ is: nonEmpty }),
-      hq: Of(Address),
+      hq: Of<Address>({ schemaClass: Address }),
     }) {}
 
     class Account extends Schema.from({
-      owner: Of(User),
-      employer: Of(Company),
+      owner: Of<User>({ schemaClass: User }),
+      employer: Of<Company>({ schemaClass: Company }),
     }) {}
 
     const acct = new Account({
