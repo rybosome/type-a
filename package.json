@@ -29,7 +29,7 @@
     "format": "prettier --write .",
     "check": "pnpm typecheck && pnpm lint && pnpm format",
     "go": "tsx src/main.ts",
-    "test": "pnpm check && pnpm build && vitest --run",
+    "test": "pnpm check && pnpm docs:test && vitest --run",
     "docs:test": "tsx ./scripts/docs-test.ts"
   },
   "packageManager": "pnpm@10.11.1",
