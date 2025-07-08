@@ -157,7 +157,9 @@ export function Of<S extends SchemaClass>(
 ): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
 
 // 6. Generic implementation – internal body (not exposed)
-export function Of<T extends Typeable, R = unknown>(opts?: {
+// NOTE: Default `R` to `T` so that calls without custom `serdes` inherit the
+//       same raw type as the value itself, matching the public overloads.
+export function Of<T extends Typeable, R = T>(opts?: {
   default?: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
   serdes?: [(value: T) => R, (value: R) => T];
