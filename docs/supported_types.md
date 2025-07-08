@@ -34,13 +34,9 @@ import { Schema, Of } from "@rybosome/type-a";
 type PostState = "draft" | "published" | "archived";
 
 class Post extends Schema.from({
-  state: Of<PostState>({
-    // Optional runtime guard – ensures only the listed states are accepted
-    is: (s) =>
-      s === "draft" || s === "published" || s === "archived"
-        ? true
-        : "invalid state",
-  }),
+  // No `is` callback needed – Type-A automatically enforces the literal union
+  // at runtime as well as compile-time.
+  state: Of<PostState>(),
 }) {}
 
 const post = new Post({ state: "draft" });
