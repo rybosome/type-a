@@ -4,21 +4,21 @@ A minimal, class-first validation library for TypeScript — inspired by Python�
 
 ## ✨ Features
 
-    •	Class-based API with native this.property field access
-    •	Schema and validation co-located with class declaration
-    •	Type-safe constructor input inference from schema
-    •	No decorators, reflect-metadata, or TypeScript hacks
-    •	Zero duplication — schema defines both runtime behavior and static types
-    •	Lightweight and dependency-free
+- Class-based API with native this.property field access
+- Schema and validation co-located with class declaration
+- Type-safe constructor input inference from schema
+- No decorators, reflect-metadata, or TypeScript hacks
+- Zero duplication — schema defines both runtime behavior and static types
+- Lightweight and dependency-free
 
 ## 📦 Installation
 
-    * NPM: `npm install @rybosome/type-a`
-    * PNPM: `pnpm add @rybosome/type-a`
+- NPM: `npm install @rybosome/type-a`
+- PNPM: `pnpm add @rybosome/type-a`
 
 ## 🚀 Quick Start
 
-````typescript
+```typescript
 import { Maybe, Of, Schema, atLeast, aUUID } from "@rybosome/type-a";
 
 //
@@ -72,11 +72,12 @@ if (badResult.errs) {
   //  id: 'not a UUID' is not a valid UUID
   //  name: OK
 }
+```
 
 ## 🔄 Custom serialization / deserialization
 
 Certain complex runtime types (such as `Date`, `URL`, or bespoke domain objects)
-don’t have a JSON-compatible representation out-of-the-box.  `type-a` lets you
+don’t have a JSON-compatible representation out-of-the-box. `type-a` lets you
 attach a `[serializer, deserializer]` tuple to any field so your models can
 seamlessly accept raw JSON values **and** emit fully serialised JSON again –
 without additional plumbing code.
@@ -100,13 +101,11 @@ e.when instanceof Date; // → true
 
 // `toJSON()` automatically applies the serializer
 JSON.stringify(e); // { "title": "Launch", "when": "2025-12-31T23:59:59.000Z" }
-````
+```
 
 Both functions must form an exact inverse pair – the serializer is typed as
 `(value: T) => Raw` while the deserializer is `(value: Raw) => T`. Supplying a
 mismatched pair will fail at compile-time.
-
-```
 
 ## 🔍 Comparison
 
@@ -118,4 +117,3 @@ mismatched pair will fail at compile-time.
 | Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
 | Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
 | Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
-```
