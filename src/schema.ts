@@ -21,6 +21,37 @@ type SchemaClass = {
   _schema: Fields;
 };
 
+/* ------------------------------------------------------------------ */
+/* Helper – instantiate nested Schema subclasses                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Create `Schema` instances for nested fields on demand.
+ *
+ * When `raw` is already an instance of the supplied `SchemaClass` the value is
+ * returned untouched. Plain-object inputs are wrapped with `new Ctor(raw)` so
+ * callers may pass de-serialised JSON directly. Arrays are handled
+ * element-wise with the same logic.
+ */
+function materialiseNested<S extends SchemaClass>(
+  ctor: S,
+  raw: unknown,
+): OutputOf<S> | OutputOf<S>[] {
+  if (raw == null) return raw as any;
+
+  if (Array.isArray(raw)) {
+    return raw.map((v) =>
+      v instanceof ctor
+        ? (v as OutputOf<S>)
+        : (new ctor(v as any) as OutputOf<S>),
+    ) as OutputOf<S>[];
+  }
+
+  return raw instanceof ctor
+    ? (raw as OutputOf<S>)
+    : (new ctor(raw as any) as OutputOf<S>);
+}
+
 // --------------------
 // FieldType
 // --------------------
@@ -152,34 +183,136 @@ export function Of<T extends Typeable, R = unknown>(opts: {
   serdes: [(value: T) => R, (value: R) => T];
 };
 
+// 6. Nested Schema class shortcut – `Of(User)`
+export function Of<S extends SchemaClass>(
+  schemaClass: S,
+): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
+
+// 7. Nested Schema **array** shortcut – `Of([User])`
+export function Of<S extends SchemaClass>(
+  schemaClass: [S],
+): FieldWithoutDefault<OutputOf<S>[]> & { schemaClass: S };
+
+// 8. Nested Schema class with options – `Of(User, opts)`
+export function Of<S extends SchemaClass>(
+  schemaClass: S,
+  opts: {
+    default?: OutputOf<S> | (() => OutputOf<S>);
+    is?:
+      | LogicalConstraint<NonNullable<OutputOf<S>>>
+      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
+  },
+): FieldType<OutputOf<S>> & { schemaClass: S };
+
+// 9. Nested Schema **array** with options – `Of([User], opts)`
+export function Of<S extends SchemaClass>(
+  schemaClass: [S],
+  opts: {
+    default?: OutputOf<S>[] | (() => OutputOf<S>[]);
+    is?:
+      | LogicalConstraint<NonNullable<OutputOf<S>[]>>
+      | LogicalConstraint<NonNullable<OutputOf<S>[]>>[];
+  },
+): FieldType<OutputOf<S>[]> & { schemaClass: S };
+
 // -----------------------------------------------------------------------
 // Generic implementation – internal body (not exposed)
 // -----------------------------------------------------------------------
 
-export function Of<T extends Typeable, R = T>(opts?: {
-  // Common
-  default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+export function Of<T extends Typeable, R = T>(
+  ...args:
+    | [
+        // Primitive field – optional options object
+        {
+          default?: T | (() => T);
+          is?:
+            | LogicalConstraint<NonNullable<T>>
+            | LogicalConstraint<NonNullable<T>>[];
+          serdes?: [(value: T) => R, (value: R) => T];
+        }?,
+      ]
+    | [SchemaClass]
+    | [SchemaClass, any]
+    | [[SchemaClass]]
+    | [[SchemaClass], any]
+): FieldType<T, R> {
+  /* -------------------------------------------------------------- */
+  /* Helper to build FieldType with optional/defaults               */
+  /* -------------------------------------------------------------- */
+  const makeField = <V extends Typeable>(
+    extra: Partial<FieldType<V>>,
+    opts:
+      | {
+          default?: V | (() => V);
+          is?:
+            | LogicalConstraint<NonNullable<V>>
+            | LogicalConstraint<NonNullable<V>>[];
+        }
+      | undefined,
+  ): FieldType<V> => {
+    const base: FieldType<V> = {
+      __t: undefined as unknown as V,
+      value: undefined as unknown as V,
+      ...extra,
+    } as FieldType<V>;
 
-  // Optional (de)serialisers – primitive fields only
-  serdes?: [(value: T) => R, (value: R) => T];
+    if (opts?.is) (base as any).is = opts.is;
+    if (opts && "default" in opts && opts.default !== undefined) {
+      (base as any).default = opts.default;
+    }
+    return base;
+  };
 
-  // Runtime constructor needed for nested schema support.  **Not** used for
-  // type inference – callers must supply the generic parameter explicitly.
-  schemaClass?: SchemaClass;
-}): FieldType<T, R> {
+  /* -------------------------------------------------------------- */
+  /* Case A – args[0] is a SchemaClass constructor (single value)   */
+  /* -------------------------------------------------------------- */
+  if (
+    args.length > 0 &&
+    typeof args[0] === "function" &&
+    "_schema" in args[0]
+  ) {
+    const schemaClass = args[0] as SchemaClass;
+    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
+    return makeField({ schemaClass }, opts) as unknown as FieldType<T, R>;
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Case B – args[0] is an array with a single SchemaClass         */
+  /* -------------------------------------------------------------- */
+  if (
+    args.length > 0 &&
+    Array.isArray(args[0]) &&
+    args[0].length === 1 &&
+    typeof args[0][0] === "function" &&
+    "_schema" in args[0][0]
+  ) {
+    const schemaClass = args[0][0] as SchemaClass;
+    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
+    // V becomes OutputOf<S>[] due to generic inference on makeField call
+    return makeField({ schemaClass }, opts) as unknown as FieldType<T, R>;
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Case C – primitive/flat field                                  */
+  /* -------------------------------------------------------------- */
+  const opts = (args[0] ?? undefined) as {
+    default?: T | (() => T);
+    is?:
+      | LogicalConstraint<NonNullable<T>>
+      | LogicalConstraint<NonNullable<T>>[];
+    serdes?: [(value: T) => R, (value: R) => T];
+  };
+
   const base: FieldType<T, R> = {
     __t: undefined as unknown as T,
     value: undefined as unknown as T,
+    ...(opts?.is ? { is: opts.is } : {}),
+    ...(opts?.serdes ? { serdes: opts.serdes } : {}),
   } as FieldType<T, R>;
 
-  if (!opts) return base;
-
-  // Copy recognised options when present.
-  if (opts.is) (base as any).is = opts.is;
-  if (opts.default !== undefined) (base as any).default = opts.default;
-  if (opts.serdes) (base as any).serdes = opts.serdes;
-  if (opts.schemaClass) (base as any).schemaClass = opts.schemaClass;
+  if (opts && "default" in opts && opts.default !== undefined) {
+    (base as any).default = opts.default;
+  }
 
   return base;
 }
@@ -326,12 +459,16 @@ export class Schema<F extends Fields> implements SchemaInstance {
         )[1](value as any);
       })();
 
-      // Preserve supplied/deserialised value as-is.  Previous versions of
-      // `Of()` automatically instantiated nested Schemas when callers passed
-      // plain objects.  With the introduction of the `Nested<T>` wrapper this
-      // responsibility moves to the caller – values for nested fields must
-      // already be `Schema` instances.
-      const nestedValue = deserialised;
+      // Automatically instantiate nested Schema(s) when the field descriptor
+      // carries a `schemaClass` sentinel.  Both single objects and arrays are
+      // supported.  Values that are already instances are left unchanged so
+      // the operation is idempotent.
+      const nestedValue = fieldDef.schemaClass
+        ? (materialiseNested(
+            fieldDef.schemaClass as SchemaClass,
+            deserialised,
+          ) as unknown as ValueMap<F>[typeof key])
+        : (deserialised as ValueMap<F>[typeof key]);
 
       const field = {
         value: nestedValue as ValueMap<F>[typeof key],

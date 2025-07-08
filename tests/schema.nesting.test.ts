@@ -18,32 +18,35 @@ describe("Schema nesting", () => {
 
   class User extends Schema.from({
     name: Of<string>({ is: nonEmpty }),
-    address: Of<Nested<typeof Address>>(),
+    address: Of(Address),
   }) {}
 
   it("instantiates with nested schema instances and exposes nested fields", () => {
-    const addr = new Address({
-      firstLine: "123 Fake Street",
-      city: "Cityville",
-      state: "Nowhere",
-      zip: 12345,
+    const u = new User({
+      name: "Jane Doe",
+      address: {
+        firstLine: "123 Fake Street",
+        city: "Cityville",
+        state: "Nowhere",
+        zip: 12345,
+      },
     });
 
-    const u = new User({ name: "Jane Doe", address: addr });
-
+    expect(u.address).toBeInstanceOf(Address);
     expect(u.address.city).toBe("Cityville");
     expect(u.address.zip).toBe(12345);
   });
 
   it("performs recursive validation when nested schema is invalid", () => {
-    const badAddr = new Address({
-      firstLine: "", // fails nonEmpty
-      city: "", // fails nonEmpty
-      state: "", // fails nonEmpty
-      zip: 50, // fails atLeast(10000)
+    const bad = new User({
+      name: "Bob",
+      address: {
+        firstLine: "", // fails nonEmpty
+        city: "", // fails nonEmpty
+        state: "", // fails nonEmpty
+        zip: 50, // fails atLeast(10000)
+      },
     });
-
-    const bad = new User({ name: "Bob", address: badAddr });
 
     const errs = bad.validate();
 
