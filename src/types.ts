@@ -159,3 +159,7 @@ export interface RelationshipDescriptor<
 export type Variant<
   Classes extends readonly { new (input: any): SchemaInstance }[],
 > = OutputOf<Classes[number]>;
+
+const _SERDES_BRAND: unique symbol = Symbol("@rybosome/type-a.brands.serdes");
+
+export type serdes<T, R = T> = { readonly [_SERDES_BRAND]: [T, R] };
