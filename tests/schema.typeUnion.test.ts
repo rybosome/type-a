@@ -3,11 +3,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, one } from "@rybosome/type-a";
+import { Schema, Of } from "@rybosome/type-a";
 
 class Response extends Schema.from({
   // status may be the literal string "ok" or any numeric HTTP status code
-  status: Of<one, "ok" | number>({}),
+  status: Of<"ok" | number>(),
 }) {}
 
 describe("Schema Union type support", () => {

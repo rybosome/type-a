@@ -1,20 +1,13 @@
 # Variants (discriminated unions)
 
 ```typescript test
-import { Schema, Of, Variant, one } from "@rybosome/type-a";
+import { Schema, Of, Variant } from "@rybosome/type-a";
 
-class Dog extends Schema.from({
-  kind: Of<one, "dog">({}),
-  woof: Of<one, string>({}),
-}) {}
-
-class Cat extends Schema.from({
-  kind: Of<one, "cat">({}),
-  meow: Of<one, string>({}),
-}) {}
+class Dog extends Schema.from({ kind: Of<"dog">(), woof: Of.string() }) {}
+class Cat extends Schema.from({ kind: Of<"cat">(), meow: Of.string() }) {}
 
 class PetOwner extends Schema.from({
-  pet: Of<one, Variant<[typeof Dog, typeof Cat]>>({
+  pet: Of<Variant<[typeof Dog, typeof Cat]>>({
     variantClasses: [Dog, Cat],
   }),
 }) {}

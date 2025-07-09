@@ -23,7 +23,7 @@ import { defaultRegistry } from "@src/registry";
  */
 export type SchemaClass = {
   new (input: any): SchemaInstance;
-  _schema?: Fields;
+  _schema: Fields;
   // Registry captured at declaration time (internal)
   __registry?: Registry;
 };

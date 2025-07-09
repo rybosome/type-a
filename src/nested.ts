@@ -39,15 +39,8 @@ export function nested<S extends SchemaClass>(schema: S): nested<S> {
 /**
 * Extract the schema constructor from a `nested<…>` type.
 */
-// Extract the schema constructor from a `nested<…>` wrapper *without* enforcing
-// that the constructor structurally matches `SchemaClass` at the type level.
-//
-// This looser constraint avoids brittle compile-time failures in client code
-// where the `_schema` static may not be immediately visible (e.g. within the
-// same file before declaration hoisting kicks in).  Runtime checks continue to
-// rely on the `schemaClass` metadata attached by the `with()` helper, so the
-// relaxed type does not compromise safety.
-
 export type _NestedSchemaOf<T> = T extends { readonly [_NESTED_BRAND]: infer S }
-  ? S
+  ? S extends SchemaClass
+    ? S
+    : never
   : never;

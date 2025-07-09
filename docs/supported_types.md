@@ -7,14 +7,14 @@ This page demonstrates the six major type categories that **Type-A** supports ou
 The simplest use-case is validating JavaScript’s primitive types. The `is` option accepts one or more _constraints_ that must return `true` for valid values (or an error string otherwise).
 
 ```typescript test
-import { Schema, Of, nonEmpty, atLeast, one } from "@rybosome/type-a";
+import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
 
 class Person extends Schema.from({
   // A non-empty string
-  name: Of<one, string>({ is: nonEmpty }),
+  name: Of<string>({ is: nonEmpty }),
 
   // A number that must be ≥ 18
-  age: Of<one, number>({ is: atLeast(18) }),
+  age: Of<number>({ is: atLeast(18) }),
 }) {}
 
 const p = new Person({ name: "Alice", age: 30 });
@@ -28,16 +28,14 @@ expect(p.validate()).toEqual([]);
 Type unions restrict a field to one of several literal values at **compile-time**. Attach the built-in `aLiteral()` helper when you also want **runtime** validation.
 
 ```typescript test
-import { Schema, Of, aLiteral, one } from "@rybosome/type-a";
+import { Schema, Of, aLiteral } from "@rybosome/type-a";
 
 // "draft" | "published" | "archived"
 type PostState = "draft" | "published" | "archived";
 
 class Post extends Schema.from({
   // Compile-time union **and** runtime guard in one line ✨
-  state: Of<one, PostState>({
-    is: aLiteral("draft", "published", "archived"),
-  }),
+  state: Of<PostState>({ is: aLiteral("draft", "published", "archived") }),
 }) {}
 
 const post = new Post({ state: "draft" });
@@ -58,14 +56,14 @@ expect(errs[0]).toBe(
 `Type A` doesn’t treat `null` and `undefined` as special cases – just include them in your union type. The `default` option marks a field as _optional_ and supplies a fallback when the caller omits the property or passes `undefined`.
 
 ```typescript test
-import { Schema, Of, one } from "@rybosome/type-a";
+import { Schema, Of } from "@rybosome/type-a";
 
 class Profile extends Schema.from({
   // May be null; defaults to null when omitted
-  nickname: Of<one, string | null>({ default: null }),
+  nickname: Of<string | null>({ default: null }),
 
   // Optional string – will fall back to the given default
-  bio: Of<one, string | undefined>({ default: "" }),
+  bio: Of<string | undefined>({ default: "" }),
 }) {}
 
 const me = new Profile({});
@@ -79,14 +77,14 @@ expect(me.bio).toBe("");
 Arrays use the familiar `T[]` syntax while tuples can express _fixed_ or _variadic_ positions. Everything after the first rest element (`...`) is still type-checked.
 
 ```typescript test
-import { Schema, Of, one } from "@rybosome/type-a";
+import { Schema, Of } from "@rybosome/type-a";
 
 class Collection extends Schema.from({
   // A simple list of tags
-  tags: Of<one, string[]>({}),
+  tags: Of<string[]>(),
 
   // Exactly two elements: boolean followed by number
-  pair: Of<one, [boolean, number]>({}),
+  pair: Of<[boolean, number]>(),
 }) {}
 
 const c = new Collection({ tags: ["a", "b"], pair: [true, 42] });
@@ -99,16 +97,16 @@ expect(c.pair).toEqual([true, 42]);
 Schemas compose naturally – just pass another `Schema` class to `Of()` and **Type-A** recurses automatically when constructing, validating, and serializing.
 
 ```typescript test
-import { Schema, Nested, Of, nonEmpty, one, with as withSchema, nested } from "@rybosome/type-a";
+import { Schema, Nested, Of, nonEmpty } from "@rybosome/type-a";
 
 class Address extends Schema.from({
-  street: Of<one, string>({ is: nonEmpty }),
-  zip: Of<one, string>({}),
+  street: Of<string>({ is: nonEmpty }),
+  zip: Of<string>(),
 }) {}
 
 class User extends Schema.from({
-  name: Of<one, string>({}),
-  address: withSchema(Address).Of<one, nested<Address>>({}),
+  name: Of<string>(),
+  address: Of<Nested<typeof Address>>(),
 }) {}
 
 const u = new User({
@@ -124,14 +122,14 @@ expect(u.address.street).toBe("42 Main St");
 For types like `Date` (which can’t be represented directly in JSON) attach a _serializer / deserializer_ tuple. The constructor runs the deserializer while `toJSON()` applies the serializer automatically.
 
 ```typescript test
-import { Schema, Of, one } from "@rybosome/type-a";
+import { Schema, Of } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (iso: string) => new Date(iso);
 
 class Event extends Schema.from({
-  title: Of<one, string>({}),
-  when: Of<one, Date>({ serdes: [serializeDate, deserializeDate] }),
+  title: Of<string>(),
+  when: Of<Date, string>({ serdes: [serializeDate, deserializeDate] }),
 }) {}
 
 const iso = "2025-12-31T23:59:59.000Z";

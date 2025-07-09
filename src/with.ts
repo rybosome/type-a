@@ -33,12 +33,7 @@ type FieldValue<C extends Cardinality, T> = C extends typeof one
 /* Public builder                                                             */
 /* -------------------------------------------------------------------------- */
 
-// Accept any constructor produced by `Schema.from`.  We intentionally keep the
-// constraint loose because *local* classes defined inline in userland test
-// files sometimes fail to satisfy the stricter `SchemaClass` structural check
-// during incremental compilation.
-
-export function withSchema<S extends new (...args: any) => any>(schemaClass: S) {
+export function withSchema<S extends SchemaClass>(schemaClass: S) {
   // The object we return contains a single `Of` method.  We *narrow* the type
   // of that method using an explicit cast so that callers see the conditional
   // constraint linking `T` to `nested<S>`.
