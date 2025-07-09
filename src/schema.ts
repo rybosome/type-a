@@ -12,11 +12,6 @@ import type {
   Fields,
 } from "@src/types";
 
-import { RelationshipDescriptor } from "@src/types";
-
-import type { Registry } from "@src/registry";
-import { defaultRegistry } from "@src/registry";
-
 /* ------------------------------------------------------------------ */
 /* Default primitive validators                                        */
 /* ------------------------------------------------------------------ */
@@ -267,38 +262,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
     this._fields = fields;
   }
 
-  static from<F extends Record<string, FieldType<any>>>(
-    schema: F,
-    opts?: { registry?: Registry },
-  ) {
-    const registry = opts?.registry ?? defaultRegistry;
-
+  static from<F extends Record<string, FieldType<any>>>(schema: F) {
     class ModelWithSchema extends Schema<F> {
       static _schema = schema;
-      static __registry = registry;
-    }
-
-    /* -------------------------------------------------------- */
-    /* Populate registry with parent-driven relationships       */
-    /* -------------------------------------------------------- */
-
-    for (const [fieldName, fieldDef] of Object.entries(schema)) {
-      const rel = (fieldDef as FieldType<any>).relation as
-        | RelationshipDescriptor<SchemaClass>
-        | undefined;
-      if (!rel) continue;
-
-      let map = registry.get(ModelWithSchema as unknown as SchemaClass);
-      if (!map) {
-        map = new Map();
-        registry.set(ModelWithSchema as unknown as SchemaClass, map);
-      }
-
-      if (rel.cardinality === "many") {
-        map.set(fieldName, [rel.schemaClass]);
-      } else {
-        map.set(fieldName, rel.schemaClass);
-      }
     }
 
     type StaticHelpers = {
