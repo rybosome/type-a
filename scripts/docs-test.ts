@@ -16,7 +16,13 @@ const __dirname = path.dirname(__filename);
 
 // Paths
 const PROJECT_ROOT = path.resolve(__dirname, "..");
+
+// The dedicated docs directory (may not exist in every repo)
 const DOCS_DIR = path.join(PROJECT_ROOT, "docs");
+
+// The front-page README we always want to include
+const ROOT_README = path.join(PROJECT_ROOT, "README.md");
+
 const OUT_DIR = path.join(PROJECT_ROOT, ".docs-tests");
 const TESTS_SUBDIR = path.join(OUT_DIR, "tests");
 
@@ -166,22 +172,38 @@ function run(cmd: string): void {
 
 (async () => {
   try {
-    // 1. Guard against missing docs directory.
+    // 1. Collect markdown sources – docs directory plus root README if present.
+
+    const mdFiles: string[] = [];
+
+    // Add docs directory markdown (if the directory exists)
     try {
-      await fs.access(DOCS_DIR);
+      const stat = await fs.stat(DOCS_DIR);
+      if (stat.isDirectory()) {
+        mdFiles.push(...(await collectMarkdown(DOCS_DIR)));
+      }
     } catch {
-      console.warn("No docs directory found - skipping docs tests.");
-      process.exit(0);
+      // docs/ directory is optional – ignore if missing
     }
 
-    // 2. Collect markdown files.
-    const mdFiles = await collectMarkdown(DOCS_DIR);
+    // Add root README (if it exists)
+    try {
+      const stat = await fs.stat(ROOT_README);
+      if (stat.isFile()) {
+        mdFiles.push(ROOT_README);
+      }
+    } catch {
+      // No README found – fine, may be a template repo
+    }
+
     if (mdFiles.length === 0) {
-      console.warn("No markdown files found under docs/. Nothing to test.");
+      console.warn(
+        "No markdown files found in docs/ or root. Nothing to test.",
+      );
       process.exit(0);
     }
 
-    // 3. Extract code blocks.
+    // 2. Extract code blocks.
     const docsWithBlocks: Array<{ file: string; blocks: string[] }> = [];
     for (const file of mdFiles) {
       const src = await fs.readFile(file, "utf8");
@@ -193,7 +215,7 @@ function run(cmd: string): void {
 
     if (docsWithBlocks.length === 0) {
       console.log(
-        "No `typescript test` code blocks found in docs. Nothing to test.",
+        "No `typescript test` code blocks found in documentation. Nothing to test.",
       );
       process.exit(0);
     }

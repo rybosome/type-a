@@ -26,6 +26,41 @@ export type SchemaClass = {
   __registry?: Registry;
 };
 
+export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
+
+/**
+ * Recursively instantiate nested schema values.
+ */
+export function instantiateNestedSchemas<T>(
+  value: unknown,
+  schemaClass: { new (v: any): T },
+): T | T[] {
+  console.error("instantiateNestedSchemas called with:", value);
+
+  if (Array.isArray(value)) {
+    const result = value.map((v) => {
+      const instance = v instanceof schemaClass ? v : new schemaClass(v);
+      console.error(" → instantiating array item:", v, "→", instance);
+      return instance;
+    });
+    return result;
+  }
+
+  if (value instanceof schemaClass) {
+    console.error(" → already instance of schemaClass:", value);
+    return value;
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const instance = new schemaClass(value);
+    console.error(" → instantiated object:", value, "→", instance);
+    return instance;
+  }
+
+  console.error(" → returned unchanged:", value);
+  return value as T;
+}
+
 // --------------------
 // FieldType
 // --------------------
@@ -33,7 +68,18 @@ export type SchemaClass = {
 /**
  * A field description used by Schema.
  */
-export interface FieldType<T extends Typeable> {
+/**
+ * Describes a Schema property at both compile-time (for type inference/validation)
+ * and runtime (for parsing/validation/serialization).
+ *
+ * @typeParam T   The *in-memory* typed representation used by callers once the
+ *                value has been parsed/deserialised.
+ * @typeParam R   The *raw* external representation accepted by the constructor
+ *                **and** produced by the optional `serializer`.  When no
+ *                custom serialisation is supplied `R` defaults to `T` so
+ *                existing call-sites continue to compile unchanged.
+ */
+export interface FieldType<T extends Typeable, R = T> {
   /**
    * Compile-time marker that preserves the **exact** generic parameter `T`
    * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
@@ -110,23 +156,21 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
 /* ------------------------------------------------------------------ */
 
 /**
- * Helper aliases used by the `Of<T>` overloads below.
- *  • `FieldWithDefault`  – `default` is **required** (present)
- *  • `FieldWithoutDefault` – `default` is **optional** and restricted to
- *    `undefined`, making it *absent* for assignability checks.
+ * Helper aliases used by the `Of<T>` overloads below.  They enforce whether
+ * the caller supplied a `default` as well as whether a `[serializer,
+ * deserializer]` tuple is present.
  */
-type FieldWithDefault<T extends Typeable> = FieldType<T> & {
+type FieldWithDefault<T extends Typeable, R = T> = FieldType<T, R> & {
   default: T | (() => T);
 };
 
 /**
  * Field descriptor *without* a default.
- *
- * By omitting the `default` key completely, the conditional type used in
- * `InputValueMap` (`F[K] extends { default: any }`) correctly recognises that
- * this field lacks a default and may therefore be required.
  */
-type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
+type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
+  FieldType<T, R>,
+  "default"
+>;
 
 // --------------------
 // Overload A — Variant union (variantClasses)
@@ -143,15 +187,19 @@ export function Of<DU extends Typeable>(opts: {
 
 /**
  * Create a field descriptor.
- *
- * Overload #1 – with default value
- * Overload #2 – without default value (opts provided)
- * Overload #3 – nested Schema class
  */
+
+// ──────────────────────────────────────────────────────────────────────────
+// Overload signatures
+// ──────────────────────────────────────────────────────────────────────────
+
+// 1. Primitive field **without** default/serdes
 export function Of<T extends Typeable>(opts?: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithoutDefault<T>;
-export function Of<T extends Typeable>(opts?: {
+
+// 2. Primitive field **with default** (no serdes)
+export function Of<T extends Typeable>(opts: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
@@ -455,7 +503,6 @@ function composeConstraints<T extends Typeable>(
  */
 export class Schema<F extends Fields> implements SchemaInstance {
   readonly __isSchemaInstance = true as const;
-  // store backing fields
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
   };
@@ -471,7 +518,22 @@ export class Schema<F extends Fields> implements SchemaInstance {
       keyof F,
       F[keyof F],
     ][]) {
-      // Determine supplied value; fall back to default when omitted/undefined
+      if (!fieldDef.schemaClass && "__t" in fieldDef) {
+        const rawT = (fieldDef as any).__t;
+        const maybeInstance = Array.isArray(rawT) ? rawT[0] : rawT;
+
+        if (
+          maybeInstance &&
+          typeof maybeInstance === "object" &&
+          maybeInstance.constructor?._schema
+        ) {
+          (fieldDef as any).schemaClass = maybeInstance.constructor;
+          console.error(
+            `✅ schemaClass inferred for field '${String(key)}':`,
+            maybeInstance.constructor.name,
+          );
+        }
+      }
       const supplied = (input as Record<string, unknown>)[key as string];
       const def = fieldDef.default;
       const value =
@@ -562,10 +624,21 @@ export class Schema<F extends Fields> implements SchemaInstance {
         return convert(value);
       })();
 
+      const nestedValue =
+        fieldDef.schemaClass != null
+          ? instantiateNestedSchemas(deserialised, fieldDef.schemaClass)
+          : deserialised;
+
+      if (fieldDef.schemaClass) {
+        console.error(`[${String(key)}] nestedValue:`, nestedValue);
+        console.error(
+          `[${String(key)}] is instance of schemaClass?`,
+          nestedValue instanceof fieldDef.schemaClass,
+        );
+      }
+
       const field = {
         value: nestedValue as ValueMap<F>[typeof key],
-
-        // Normalise `is` so `_fields` always stores a single function
         is: (() => {
           const rawIs = fieldDef.is as
             | LogicalConstraint<NonNullable<ValueMap<F>[typeof key]>>
@@ -600,15 +673,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
           return undefined;
         })(),
-
-        // Preserve the original default (value or callable) verbatim
         default: fieldDef.default as FieldType<
           ValueMap<F>[typeof key]
         >["default"],
-
-        // Preserve nested SchemaClass sentinel so `validate()` and `toJSON()`
-        // can recurse.  When absent we deliberately omit the key so the
-        // resulting object remains minimal for primitive fields.
+        ...(fieldDef.serdes ? { serdes: fieldDef.serdes } : {}),
         ...(fieldDef.schemaClass ? { schemaClass: fieldDef.schemaClass } : {}),
       } as FieldType<ValueMap<F>[typeof key]>;
 
@@ -747,6 +815,15 @@ export class Schema<F extends Fields> implements SchemaInstance {
      */
     const serialise = (val: unknown): unknown => {
       if (val == null) return val;
+
+      /* -------------------------------------------------- */
+      /* Primitive BigInt handling                          */
+      /* -------------------------------------------------- */
+      // Native `JSON.stringify` throws on BigInt values.  Convert to a
+      // string representation so callers can safely serialise the output
+      // produced by `Schema#toJSON()` without additional hooks.
+      if (typeof val === "bigint") return val.toString();
+
       if (Array.isArray(val)) return val.map(serialise);
       if (val instanceof Map) {
         const obj: Record<string, unknown> = {};

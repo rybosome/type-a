@@ -15,6 +15,7 @@ export interface SchemaInstance {
 type ScalarTypeable =
   | string
   | number
+  | bigint
   | boolean
   | bigint
   | null
@@ -46,7 +47,11 @@ export type Typeable =
   | ScalarTypeable[]
   | TupleTypeable
   | { [key: string]: Typeable }
-  | Map<unknown, Typeable>;
+  | Map<unknown, Typeable>
+  // Allow arbitrary object instances (Date, URL, custom classes) so that
+  // callers can plug custom (de)serialisers without fighting the type
+  // system.
+  | (object & { [K in never]: never });
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
