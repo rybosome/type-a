@@ -150,14 +150,6 @@ export interface RelationshipDescriptor<
  * union of their **constructed** (output) value types.  Intended for use with
  * {@link Schema.Of} when building explicit discriminated unions:
  *
- * ```ts
- * class A extends Schema.from({ kind: Of<'A'>() }) {}
- * class B extends Schema.from({ kind: Of<'B'>() }) {}
- *
- * type AorB = DiscriminatedUnion<[typeof A, typeof B]>;
- * //        ^ equivalent to  OutputOf<typeof A> | OutputOf<typeof B>
- * ```
- *
  * Internally this is merely an alias over `OutputOf<…>` – no additional runtime
  * behaviour is attached.  Validation, serialisation, and re-hydration are
  * handled by the {@link Schema} logic once the corresponding `schemaClasses`
@@ -167,14 +159,3 @@ export interface RelationshipDescriptor<
 export type Variant<
   Classes extends readonly { new (input: any): SchemaInstance }[],
 > = OutputOf<Classes[number]>;
-
-/**
- * Deprecated alias kept for smoother migration. Instantiating the runtime
- * value throws immediately with a descriptive error so that code relying on
- * the *value* (rather than the type) fails loudly.
- */
-
-// NOTE: The old `DiscriminatedUnion` runtime shim and type alias were removed.
-// If you still reference `DiscriminatedUnion` in user-land code, migrate to
-// the new `Variant` helper which provides the same compile-time behaviour
-// without the deprecated API surface.

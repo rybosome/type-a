@@ -4,12 +4,12 @@ import { Schema, Of, Variant } from "@rybosome/type-a";
 
 class A extends Schema.from({
   kind: Of<"A">(), // keep literal helper via generic – still ok
-  a: Of.string(),
+  a: Of<string>(),
 }) {}
 
 class B extends Schema.from({
   kind: Of<"B">(),
-  b: Of.number(),
+  b: Of<number>(),
 }) {}
 
 class Wrapper extends Schema.from({

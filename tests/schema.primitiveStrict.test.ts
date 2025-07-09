@@ -3,9 +3,8 @@ import { describe, it, expect } from "vitest";
 import { Schema, Of } from "@rybosome/type-a";
 
 class Flags extends Schema.from({
-  // Use strict primitive helpers so runtime validation rejects incorrect types
-  active: Of.boolean(),
-  score: Of.number(),
+  active: Of<boolean>(),
+  score: Of<number>(),
 }) {}
 
 describe("Schema – strict primitive validation", () => {

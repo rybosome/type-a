@@ -8,8 +8,8 @@ import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
 describe("Schema", () => {
   describe("basic functionality", () => {
     class User extends Schema.from({
-      id: Of.string({ is: aUUID }),
-      age: Of.number({ is: atLeast(18) }),
+      id: Of<string>({ is: aUUID }),
+      age: Of<number>({ is: atLeast(18) }),
       active: Of<boolean>({ default: true }), // default added here
     }) {
       greet() {
@@ -55,7 +55,7 @@ describe("Schema", () => {
   describe("optional & nullable fields", () => {
     class OptModel extends Schema.from({
       // required – no default and `undefined` not allowed
-      required: Of.string(),
+      required: Of<string>(),
 
       // optional – `undefined` explicitly allowed
       optional: Of<string | undefined>(),
