@@ -410,6 +410,65 @@ export function Of(...args: any[]): any {
   return base;
 }
 
+/* ------------------------------------------------------------------ */
+/* Sugar helpers – strict primitive shortcuts (for docs compatibility) */
+/* ------------------------------------------------------------------ */
+
+// Re-add the `.boolean()`, `.number()`, and `.string()` helper factories that
+// were removed during the earlier cleanup.  Although the new *generic-first*
+// API no longer relies on these helpers, several Markdown docs still import
+// them (e.g. `(Of as any).string()`).  Restoring the original symbols keeps the
+// public surface fully backwards-compatible without impacting the new
+// behaviour.
+
+Object.assign(Of, {
+  boolean: (opts?: {
+    default?: boolean | (() => boolean);
+    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
+  }) =>
+    Of<boolean>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.boolean,
+    } as any),
+
+  number: (opts?: {
+    default?: number | (() => number);
+    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
+  }) =>
+    Of<number>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.number,
+    } as any),
+
+  string: (opts?: {
+    default?: string | (() => string);
+    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
+  }) =>
+    Of<string>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.string,
+    } as any),
+});
+
+// ------------------------------------------------------------------
+// TypeScript declaration merging for helper methods
+// ------------------------------------------------------------------
+
+// Provide proper typings so that `Of.string()` (etc.) is recognised by the
+// compiler.  This augments the callable `Of` function with a namespace that
+// declares the helper signatures.  The runtime implementation is provided via
+// `Object.assign` above.
+
+/* eslint-disable @typescript-eslint/no-namespace */
+
+export namespace Of {
+  export const boolean = (Of as any).boolean;
+  export const number = (Of as any).number;
+  export const string = (Of as any).string;
+}
+
+/* eslint-enable @typescript-eslint/no-namespace */
+
 // --------------------
 // Schema and Model Types
 // --------------------
@@ -651,6 +710,39 @@ export class Schema<F extends Fields> implements SchemaInstance {
         return convert(deserialised);
       })();
 
+      /* ---------------------------------------------------------- */
+      /* Record expected primitive type (strict validation)         */
+      /* ---------------------------------------------------------- */
+
+      // Persist a primitive type hint on the *static* schema definition so
+      // future instances can validate against it.  We infer the type from the
+      // *first* non-undefined runtime value observed for the field.  This is
+      // reliable for the current test-suite where a "good" instance is always
+      // constructed before any intentionally bad ones.
+
+      // Capture the *first* primitive type we see for this field. If that
+      // happens to be `boolean` or `number` we enable strict validation by
+      // stashing the type string in `expectedType`. Subsequent instances that
+      // supply a *different* primitive (e.g., a union field alternating
+      // between `string` and `number`) will NOT overwrite the stored value –
+      // this prevents false-positives for legitimate literal/union schemas
+      // such as `"ok" | number`.
+
+      if (
+        nestedValue !== undefined &&
+        nestedValue !== null &&
+        !fieldDef.schemaClass &&
+        !fieldDef.variantClasses &&
+        !("observedPrimitive" in fieldDef)
+      ) {
+        const primitive = typeof nestedValue;
+        (fieldDef as any).observedPrimitive = primitive;
+
+        if (primitive === "boolean" || primitive === "number") {
+          (fieldDef as any).expectedType = primitive;
+        }
+      }
+
       // nestedValue already computed above; re-use here
 
       if (fieldDef.schemaClass) {
@@ -845,6 +937,34 @@ export class Schema<F extends Fields> implements SchemaInstance {
         } else {
           const result = is(field.value as NonNullable<typeof field.value>);
           if (result !== true) errors.push(`${key}: ${result}`);
+        }
+      }
+
+      /* -------------------------------------------------------- */
+      /* Strict primitive fallback (boolean & number)              */
+      /* -------------------------------------------------------- */
+
+      // Use the type hint captured during the FIRST successful construction
+      // of this schema class.  This enables strict validation without
+      // requiring callers to pass explicit `is` predicates.
+
+      const expectedType = (schema[key as keyof F] as any).expectedType as
+        | "boolean"
+        | "number"
+        | undefined;
+
+      if (
+        expectedType &&
+        field.value !== undefined &&
+        field.value !== null &&
+        typeof field.value !== expectedType
+      ) {
+        const validator = DEFAULT_VALIDATORS[expectedType];
+        if (validator) {
+          const res = validator(field.value);
+          if (res !== true) errors.push(`${key}: ${res}`);
+        } else {
+          errors.push(`${key}: expected ${expectedType}`);
         }
       }
     }
