@@ -97,3 +97,29 @@ export type ErrLog<T> = {
  * On success `val` is provided, on failure `errs` is populated.
  */
 export type Maybe<T> = Result<T, ErrLog<T>>;
+
+/* ------------------------------------------------------------------ */
+/* DiscriminatedUnion                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Utility helper that converts a list/tuple of {@link Schema} classes into a
+ * union of their **constructed** (output) value types.  Intended for use with
+ * {@link Schema.Of} when building explicit discriminated unions:
+ *
+ * ```ts
+ * class A extends Schema.from({ kind: Of<'A'>() }) {}
+ * class B extends Schema.from({ kind: Of<'B'>() }) {}
+ *
+ * type AorB = DiscriminatedUnion<[typeof A, typeof B]>;
+ * //        ^ equivalent to  OutputOf<typeof A> | OutputOf<typeof B>
+ * ```
+ *
+ * Internally this is merely an alias over `OutputOf<…>` – no additional runtime
+ * behaviour is attached.  Validation, serialisation, and re-hydration are
+ * handled by the {@link Schema} logic once the corresponding `schemaClasses`
+ * array is supplied to `Of()`.
+ */
+export type DiscriminatedUnion<
+  Classes extends readonly { new (input: any): SchemaInstance }[],
+> = OutputOf<Classes[number]>;

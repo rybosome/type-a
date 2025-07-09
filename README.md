@@ -18,7 +18,7 @@ A minimal, class-first validation library for TypeScript — inspired by Python�
 
 ## 🚀 Quick Start
 
-```typescript
+````typescript
 import { Maybe, Of, Schema, atLeast, aUUID } from "@rybosome/type-a";
 
 //
@@ -102,7 +102,8 @@ const u = new User({
 });
 
 console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
-```
+````
+
 ```
 
 ## 🔍 Comparison
@@ -115,3 +116,4 @@ console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
 | Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
 | Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
 | Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
+```

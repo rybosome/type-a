@@ -64,10 +64,18 @@ export interface FieldType<T extends Typeable> {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 
   /**
-   * Optional nested Schema class. When present this field is automatically
-   * instantiated, validated and serialised recursively.
+   * Optional nested Schema class (singular). When present this field is
+   * automatically instantiated, validated and serialised recursively.
    */
   schemaClass?: SchemaClass;
+
+  /**
+   * Optional *set* of Schema classes used for explicit discriminated unions.
+   * When provided the runtime picks the correct constructor from this list
+   * based on the incoming raw object's discriminator value and instantiates
+   * it.  Mutually exclusive with {@link FieldType.schemaClass}.
+   */
+  schemaClasses?: SchemaClass[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,6 +101,18 @@ type FieldWithDefault<T extends Typeable> = FieldType<T> & {
  */
 type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
 
+// --------------------
+// Overload A — Discriminated Union (schemaClasses)
+// --------------------
+
+export function Of<DU extends Typeable>(opts: {
+  schemaClasses: SchemaClass[];
+  default?: DU | (() => DU);
+  is?:
+    | LogicalConstraint<NonNullable<DU>>
+    | LogicalConstraint<NonNullable<DU>>[];
+}): FieldType<DU> & { schemaClasses: SchemaClass[] };
+
 /**
  * Create a field descriptor.
  *
@@ -107,6 +127,8 @@ export function Of<T extends Typeable>(opts?: {
   default: T | (() => T);
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
+
+// (duplicate discriminated-union overload removed; see earlier definition)
 // Nested Schema without options (single instance)
 export function Of<S extends SchemaClass>(
   schemaClass: S,
@@ -133,6 +155,7 @@ export function Of<S extends SchemaClass>(
       | LogicalConstraint<NonNullable<OutputOf<S>>>[];
   },
 ): FieldType<OutputOf<S>[]> & { schemaClass: S };
+
 export function Of(...args: any[]): any {
   /* -------------------------------------------------------------- */
   /* Detect argument pattern                                        */
@@ -211,6 +234,40 @@ export function Of(...args: any[]): any {
   // Case C – primitive / non-schema field definitions (legacy path)
   // ------------------------------------------------------------------
 
+  // Discriminated-union support: opts object with `schemaClasses` key.
+  if (
+    args.length === 1 &&
+    args[0] &&
+    typeof args[0] === "object" &&
+    !Array.isArray(args[0]) &&
+    Array.isArray((args[0] as any).schemaClasses)
+  ) {
+    const optsObj = args[0] as {
+      schemaClasses: SchemaClass[];
+      default?: Typeable | (() => Typeable);
+      is?: LogicalConstraint<Typeable> | LogicalConstraint<Typeable>[];
+    };
+
+    const { schemaClasses, ...rest } = optsObj;
+
+    // Validate schemaClasses shape at runtime for helpful errors.
+    if (
+      schemaClasses.length === 0 ||
+      !schemaClasses.every((c) => typeof c === "function" && "_schema" in c)
+    ) {
+      throw new Error(
+        "Of(): `schemaClasses` must be an array of Schema classes with static _schema",
+      );
+    }
+
+    return makeField(
+      {
+        schemaClasses,
+      },
+      rest as Parameters<typeof makeField>[1],
+    );
+  }
+
   const opts = (args[0] ?? undefined) as {
     default?: Typeable | (() => Typeable);
     is?: ((val: any) => boolean | string) | ((val: any) => boolean | string)[];
@@ -241,9 +298,17 @@ type ValueType<F> = F extends { schemaClass: infer S }
       ? V // Preserve generic param (handles arrays automatically)
       : OutputOf<S>
     : never
-  : F extends FieldType<infer V>
-    ? V
-    : never;
+  : F extends { schemaClasses: infer Arr }
+    ? Arr extends SchemaClass[]
+      ? F extends FieldType<infer V>
+        ? V extends any[]
+          ? OutputOf<Arr[number]>[]
+          : OutputOf<Arr[number]>
+        : OutputOf<Arr[number]>
+      : never
+    : F extends FieldType<infer V>
+      ? V
+      : never;
 
 type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
 
@@ -285,7 +350,15 @@ type InputType<F> = F extends { schemaClass: infer S }
         : InputOf<S>
       : never
     : never
-  : ValueType<F>;
+  : F extends { schemaClasses: infer Arr }
+    ? Arr extends SchemaClass[]
+      ? F extends FieldType<infer V>
+        ? V extends any[]
+          ? InputOf<Arr[number]>[]
+          : InputOf<Arr[number]>
+        : InputOf<Arr[number]>
+      : never
+    : ValueType<F>;
 
 type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;
@@ -346,15 +419,83 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       // Handle nested Schema instantiation when necessary
       const nestedValue = (() => {
-        const Ctor = fieldDef.schemaClass;
-        if (!Ctor || value === undefined || value === null) return value;
+        const singleCtor = fieldDef.schemaClass;
+        const ctorSet = fieldDef.schemaClasses;
+
+        if (
+          (!singleCtor && !ctorSet) ||
+          value === undefined ||
+          value === null
+        ) {
+          return value;
+        }
+
+        // Helper to pick constructor for discriminated unions ----------------
+        const pickCtor = (raw: unknown): SchemaClass | undefined => {
+          if (singleCtor) return singleCtor;
+          if (!ctorSet) return undefined;
+
+          // Simple heuristic: use `kind` discriminator when present.
+          const discriminator = (raw as any)?.kind;
+          if (discriminator != null) {
+            const match = ctorSet.find((C) => {
+              try {
+                // Attempt cheap prototype check first – avoids full instantiation.
+                const schema = (C as any)._schema as Fields;
+                if (
+                  schema &&
+                  Object.prototype.hasOwnProperty.call(schema, "kind") &&
+                  // access default or literal value if present
+                  (schema.kind as any).default === discriminator
+                )
+                  return true;
+              } catch {
+                /* noop */
+              }
+              return false;
+            });
+            if (match) return match;
+          }
+
+          // Fallback heuristic ------------------------------------------------
+          // Choose the constructor whose declared schema keys overlap the most
+          // with the raw object's keys.  This is a simple, deterministic
+          // approach that works well for typical discriminated unions where
+          // each subtype has unique fields.
+          if (raw && typeof raw === "object") {
+            const rawKeys = new Set(
+              Object.keys(raw as Record<string, unknown>),
+            );
+            let best: SchemaClass | undefined;
+            let bestScore = -1;
+
+            for (const C of ctorSet) {
+              const keys = Object.keys((C as any)._schema as Fields);
+              let score = 0;
+              for (const k of keys) if (rawKeys.has(k)) score += 1;
+              if (score > bestScore) {
+                bestScore = score;
+                best = C;
+              }
+            }
+            if (best) return best;
+          }
+
+          // As a final fallback, just use the first constructor.
+          return ctorSet[0];
+        };
+
+        const convert = (val: unknown): unknown => {
+          const Ctor = pickCtor(val);
+          if (!Ctor) return val; // give up – leave raw
+          return val instanceof Ctor ? val : new Ctor(val as any);
+        };
 
         // Array-of-schema support
         if (Array.isArray(value)) {
-          return value.map((v) => (v instanceof Ctor ? v : new Ctor(v as any)));
+          return value.map(convert);
         }
-
-        return value instanceof Ctor ? value : new Ctor(value as any);
+        return convert(value);
       })();
 
       const field = {
@@ -466,16 +607,20 @@ export class Schema<F extends Fields> implements SchemaInstance {
       /* ---------------------------------------------------------- */
       /* Recurse into nested Schemas                                */
       /* ---------------------------------------------------------- */
-      if (field.schemaClass && field.value != null) {
+      if (field.value != null) {
+        const pushNestedErrors = (item: Schema<any>, prefix: string) => {
+          const nestedErrors = item.validate();
+          for (const msg of nestedErrors) errors.push(`${prefix}.${msg}`);
+        };
+
         if (Array.isArray(field.value)) {
-          field.value.forEach((item: Schema<any>, idx: number) => {
-            const nestedErrors = item.validate();
-            for (const msg of nestedErrors)
-              errors.push(`${key}[${idx}].${msg}`);
+          field.value.forEach((item: unknown, idx: number) => {
+            if ((item as any)?.__isSchemaInstance) {
+              pushNestedErrors(item as Schema<any>, `${key}[${idx}]`);
+            }
           });
-        } else {
-          const nestedErrors = (field.value as Schema<any>).validate();
-          for (const msg of nestedErrors) errors.push(`${key}.${msg}`);
+        } else if ((field.value as any)?.__isSchemaInstance) {
+          pushNestedErrors(field.value as Schema<any>, String(key));
         }
       }
 
@@ -554,12 +699,17 @@ export class Schema<F extends Fields> implements SchemaInstance {
     for (const key in this._fields) {
       const field = this._fields[key];
       const raw = (() => {
-        if (!field.schemaClass || field.value == null) return field.value;
+        if (field.value == null) return field.value;
 
         if (Array.isArray(field.value)) {
-          return field.value.map((v: Schema<any>) => v.toJSON());
+          return field.value.map((v: unknown) =>
+            (v as any)?.__isSchemaInstance ? (v as Schema<any>).toJSON() : v,
+          );
         }
-        return (field.value as Schema<any>).toJSON();
+
+        return (field.value as any)?.__isSchemaInstance
+          ? (field.value as Schema<any>).toJSON()
+          : field.value;
       })();
       // Recursively serialise (handles Map & nested objects)
       (json as Record<string, unknown>)[key] = serialise(raw);
