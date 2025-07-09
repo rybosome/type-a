@@ -76,6 +76,37 @@ if (badResult.errs) {
 }
 ```
 
+## 🗂️ Nested schemas & array helpers
+
+`Of()` now accepts a Schema class (or an array form) **plus** additional field options.
+Passing a plain object — or an array of plain objects — automatically instantiates the
+corresponding nested schema class(es).
+
+```ts
+const isValidLogin = (val: LoginAttempt) =>
+  val.unixTimestampMs >= 0 || "timestamp must be positive";
+
+class LoginAttempt extends Schema.from({
+  success: Of<boolean>(),
+  unixTimestampMs: Of<number>(),
+}) {}
+
+class User extends Schema.from({
+  // Array-of-schema with custom validator – note the `[LoginAttempt]` wrapper
+  loginAttempts: Of([LoginAttempt], { is: isValidLogin }),
+}) {}
+
+// Raw object(s) are converted to `LoginAttempt` instances automatically
+const u = new User({
+  loginAttempts: [
+    { success: true, unixTimestampMs: 100 },
+    { success: false, unixTimestampMs: 200 },
+  ],
+});
+
+console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
+```
+
 ## 🔄 Custom serialization / deserialization
 
 Certain complex runtime types (such as `Date`, `URL`, or bespoke domain objects)
@@ -119,3 +150,7 @@ mismatched pair will fail at compile-time.
 | Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
 | Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
 | Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
+
+```
+
+```

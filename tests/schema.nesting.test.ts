@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Nested, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
 
 /**
  * Tests for arbitrarily-nested schema support.
@@ -17,7 +17,7 @@ describe("Schema nesting", () => {
 
   class User extends Schema.from({
     name: Of<string>({ is: nonEmpty }),
-    address: Of<Nested<typeof Address>>(),
+    address: Of(Schema.hasOne(Address)),
   }) {}
 
   it("instantiates with nested object and exposes nested fields", () => {
@@ -49,36 +49,34 @@ describe("Schema nesting", () => {
     }
   });
 
-  // This currently fails - very challenging to recursively instantiate correctly
-  // it("performs recursive validation", () => {
-  //   const bad = new User({
-  //     name: "Bob",
-  //     address: {
-  //       firstLine: "", // fails nonEmpty
-  //       city: "", // fails nonEmpty
-  //       state: "", // fails nonEmpty
-  //       zip: 50, // fails atLeast(10000)
-  //     },
-  //   });
+  it("performs recursive validation", () => {
+    const bad = new User({
+      name: "Bob",
+      address: {
+        firstLine: "", // fails nonEmpty
+        city: "", // fails nonEmpty
+        state: "", // fails nonEmpty
+        zip: 50, // fails atLeast(10000)
+      },
+    });
 
-  //   const errs = bad.validate();
+    const errs = bad.validate();
 
-  //   expect(errs).toContain("address.firstLine: must not be empty");
-  //   expect(errs).toContain("address.city: must not be empty");
-  //   expect(errs).toContain("address.state: must not be empty");
-  //   expect(errs).toContain("address.zip: 50 is not atLeast(10000)");
-  // });
+    expect(errs).toContain("address.firstLine: must not be empty");
+    expect(errs).toContain("address.city: must not be empty");
+    expect(errs).toContain("address.state: must not be empty");
+    expect(errs).toContain("address.zip: 50 is not atLeast(10000)");
+  });
 
   it("supports deeply-nested structures", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     class Company extends Schema.from({
       name: Of<string>({ is: nonEmpty }),
-      hq: Of<Nested<typeof Address>>(),
+      hq: Of(Schema.hasOne(Address)),
     }) {}
 
     class Account extends Schema.from({
-      owner: Of<Nested<typeof User>>(),
-      employer: Of<Nested<typeof Company>>(),
+      owner: Of(Schema.hasOne(User)),
+      employer: Of(Schema.hasOne(Company)),
     }) {}
 
     const acct = new Account({
@@ -108,13 +106,12 @@ describe("Schema nesting", () => {
   });
 
   it("supports type-composition", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     class Company extends Schema.from({
       name: Of<string>({ is: nonEmpty }),
     }) {}
 
     class WorkHistory extends Schema.from({
-      employers: Of<Nested<typeof Company>[]>(),
+      employers: Of(Schema.hasMany(Company)),
     }) {}
 
     new WorkHistory({

@@ -1,6 +1,6 @@
 {
   "name": "@rybosome/type-a",
-  "version": "0.1.0",
+  "version": "0.10.0",
   "description": "Declarative class models with runtime validation for TypeScript",
   "keywords": [
     "typescript",

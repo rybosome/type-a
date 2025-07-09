@@ -8,8 +8,8 @@ import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
 describe("Schema", () => {
   describe("basic functionality", () => {
     class User extends Schema.from({
-      id: Of<string>({ is: aUUID }),
-      age: Of<number>({ is: atLeast(18) }),
+      id: Of.string({ is: aUUID }),
+      age: Of.number({ is: atLeast(18) }),
       active: Of<boolean>({ default: true }), // default added here
     }) {
       greet() {
@@ -55,19 +55,19 @@ describe("Schema", () => {
   describe("optional & nullable fields", () => {
     class OptModel extends Schema.from({
       // required – no default and `undefined` not allowed
-      required: Of<string>({}),
+      required: Of.string(),
 
       // optional – `undefined` explicitly allowed
-      optional: Of<string | undefined>({}),
+      optional: Of<string | undefined>(),
 
       // optional – default provided
       optionalDefault: Of<string>({ default: "hi" }),
 
       // nullable but still required (null OR string) – `undefined` not allowed
-      nullable: Of<string | null>({}),
+      nullable: Of<string | null>(),
 
       // optional & nullable – both undefined and null allowed
-      optionalNullable: Of<string | null | undefined>({}),
+      optionalNullable: Of<string | null | undefined>(),
     }) {}
 
     it("allows omitting optional keys", () => {
