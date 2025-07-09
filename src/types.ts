@@ -174,16 +174,7 @@ export type Variant<
  * the *value* (rather than the type) fails loudly.
  */
 
-export const DiscriminatedUnion = new Proxy(() => {}, {
-  apply() {
-    throw new Error(
-      "`DiscriminatedUnion` has been renamed to `Variant`. Update your imports and generics accordingly.",
-    );
-  },
-}) as never;
-
-// Keep type alias for compile-time back-compatibility
-
-export type DiscriminatedUnion<
-  C extends readonly { new (input: any): SchemaInstance }[],
-> = Variant<C>;
+// NOTE: The old `DiscriminatedUnion` runtime shim and type alias were removed.
+// If you still reference `DiscriminatedUnion` in user-land code, migrate to
+// the new `Variant` helper which provides the same compile-time behaviour
+// without the deprecated API surface.

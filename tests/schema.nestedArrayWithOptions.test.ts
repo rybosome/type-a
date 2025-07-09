@@ -8,8 +8,8 @@ const validLogin = (val: LoginAttempt): true | string => {
 };
 
 class LoginAttempt extends Schema.from({
-  success: Of<boolean>(),
-  unixTimestampMs: Of<number>(),
+  success: Of.boolean(),
+  unixTimestampMs: Of.number(),
 }) {}
 
 class User extends Schema.from({
