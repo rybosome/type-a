@@ -22,10 +22,20 @@ import { defaultRegistry } from "@src/registry";
 /**
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
-export type SchemaClass = (new (...args: any[]) => any) & {
-  /** Optional compile-time schema descriptor populated by `Schema.from()`. */
-  _schema?: Fields;
-};
+/**
+* Constructor type representing any class created via {@link Schema.from}.
+*
+* Prior revisions insisted on a static `_schema` property but that requirement
+* proved *too* strict – the compiler rejected perfectly valid subclasses when
+* conditional types attempted to match against an **optional** property.
+*
+* Rather than fight subtle inference rules we only require the **constructor
+* signature**.  All real schema classes *do* expose `_schema` at runtime yet
+* making the property optional (or omitting it entirely) keeps the constraint
+* lightweight and, crucially, allows nested<SubSchema> wrappers to resolve
+* correctly during conditional‐type inference.
+*/
+export type SchemaClass = new (...args: any[]) => any;
 
 export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
 
@@ -366,23 +376,38 @@ export function Of(...args: any[]): any {
 
 type Fields = Record<string, FieldType<any>>;
 
-type ValueType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V // Preserve generic param (handles arrays automatically)
-      : OutputOf<S>
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
+/* ---------------------------------------------------------------------- */
+/*                       Type-level field unwrapping                       */
+/* ---------------------------------------------------------------------- */
+
+/**
+* Resolve the **in-memory** value represented by a `FieldType` descriptor. The
+* conditional branches deliberately use optional (`?`) property modifiers so
+* that the match succeeds regardless of whether the property is *required* or
+* *optional* in the source object type.  This is crucial because the generic
+* `Of()` builder marks metadata such as `default` and `variantClasses` as
+* *required* exactly when the caller supplies them but *optional* otherwise.
+*/
+type ValueType<F> = // ─── Nested schema (single or array) ──────────────────
+  F extends { schemaClass?: infer S }
+    ? S extends new (...args: any[]) => any
       ? F extends FieldType<infer V>
-        ? V extends any[]
-          ? OutputOf<Arr[number]>[]
-          : OutputOf<Arr[number]>
-        : OutputOf<Arr[number]>
+        ? V // preserve generic parameter – already unwrapped by `Of`
+        : OutputOf<S>
       : never
-    : F extends FieldType<infer V>
-      ? V
-      : never;
+    // ─── Variant union (single or array) ─────────────────────────────────
+    : F extends { variantClasses?: infer Arr }
+      ? Arr extends Array<new (...args: any[]) => any>
+        ? F extends FieldType<infer V>
+          ? V extends any[]
+            ? OutputOf<Arr[number]>[]
+            : OutputOf<Arr[number]>
+          : OutputOf<Arr[number]>
+        : never
+      // ─── Primitive / plain field ───────────────────────────────────────
+      : F extends FieldType<infer V>
+        ? V
+        : never;
 
 type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
 
@@ -393,7 +418,8 @@ type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
  * value type already allows `undefined`.
  */
 type OptionalKeys<F extends Fields> = {
-  [K in keyof F]: F[K] extends { default: any }
+  // Explicit default provided → optional
+  [K in keyof F]: 'default' extends keyof F[K]
     ? K
     : undefined extends ValueMap<F>[K]
       ? K
@@ -404,7 +430,7 @@ type OptionalKeys<F extends Fields> = {
  * Keys that must be provided in the constructor's input object.
  */
 type RequiredKeys<F extends Fields> = {
-  [K in keyof F]: F[K] extends { default: any }
+  [K in keyof F]: 'default' extends keyof F[K]
     ? never
     : undefined extends ValueMap<F>[K]
       ? never
@@ -416,23 +442,26 @@ type RequiredKeys<F extends Fields> = {
  *  • Keys in `RequiredKeys` are mandatory.
  *  • Keys in `OptionalKeys` may be omitted.
  */
-type InputType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V extends any[]
-        ? InputOf<S>[]
-        : InputOf<S>
-      : never
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
+type InputType<F> = // ─── Nested schema (single or array) ────────────────
+  F extends { schemaClass?: infer S }
+    ? S extends new (...args: any[]) => any
       ? F extends FieldType<infer V>
         ? V extends any[]
-          ? InputOf<Arr[number]>[]
-          : InputOf<Arr[number]>
-        : InputOf<Arr[number]>
+          ? InputOf<S>[]
+          : InputOf<S>
+        : InputOf<S>
       : never
-    : ValueType<F>;
+    // ─── Variant union (single or array) ───────────────────────────────
+    : F extends { variantClasses?: infer Arr }
+      ? Arr extends Array<new (...args: any[]) => any>
+        ? F extends FieldType<infer V>
+          ? V extends any[]
+            ? InputOf<Arr[number]>[]
+            : InputOf<Arr[number]>
+          : InputOf<Arr[number]>
+        : never
+      // ─── Primitive / plain field ─────────────────────────────────────
+      : ValueType<F>;
 
 type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;

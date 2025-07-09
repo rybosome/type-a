@@ -40,7 +40,5 @@ export function nested<S extends SchemaClass>(schema: S): nested<S> {
  * Extract the schema constructor from a `nested<…>` type.
  */
 export type _NestedSchemaOf<T> = T extends { readonly [_NESTED_BRAND]: infer S }
-  ? S extends SchemaClass
-    ? S
-    : never
+  ? S
   : never;

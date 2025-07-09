@@ -32,16 +32,16 @@ type FieldValue<C extends Cardinality, T> = C extends typeof one
 /* Public builder                                                             */
 /* -------------------------------------------------------------------------- */
 
-export function has<S extends SchemaClass>(schemaClass: S) {
+export function has<S extends new (...args: any[]) => any>(schemaClass: S) {
   // The object we return contains a single `Of` method.  We *narrow* the type
   // of that method using an explicit cast so that callers see the conditional
   // constraint linking `T` to `nested<S>`.
 
-  function OfWithinHas<C extends Cardinality, T extends Typeable, R = FieldValue<C, T>>( // raw R defaults
-    opts: FieldOpts<C, T, R>,
+  function OfWithinHas<C extends Cardinality, T extends Typeable>(
+    opts: Parameters<typeof Of>[0],
   ): any {
     // Delegate the heavy lifting to the generic-only `Of` builder.
-    const field = Of<C, T, R>(opts) as unknown as FieldType<FieldValue<C, T>> & {
+    const field = Of<C, T>(opts) as unknown as FieldType<FieldValue<C, T>> & {
       schemaClass: S;
       cardinality: C;
     };

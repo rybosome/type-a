@@ -5,6 +5,7 @@
 import type { Cardinality, one, many } from "@src/cardinality";
 import type { _NestedSchemaOf, nested } from "@src/nested";
 import type { LogicalConstraint } from "@src/types";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { SchemaClass } from "@src/schema";
 import type { Typeable } from "@src/types";
 
@@ -73,35 +74,69 @@ export interface FieldOpts<C extends Cardinality, T, R = FieldValue<C, T>> {
 /* -------------------------------------------------------------------------- */
 /* Builder implementation                                                      */
 /* -------------------------------------------------------------------------- */
-
 /**
- * Generic-only field builder.
- *
- * ```ts
- * class User extends Schema.from({
- *   name:  Of<one, string>({}),
- *   tags:  Of<many, string>({}),
- *   posts: with(Post).Of<many, nested<Post>[]?>({}),
- * });
- * ```
- */
-export function Of<C extends Cardinality, T extends Typeable, R = FieldValue<C, T>>( // R = raw repr
-  opts: FieldOpts<C, T, R> | [],
-): FieldType<FieldValue<C, T>> & (R extends FieldValue<C, T> ? {} : { serdes: [(val: FieldValue<C, T>) => R, (raw: R) => FieldValue<C, T>] }) {
-  // Normalize `opts` – allow callers to pass the ergonomic `[]` sentinel which
-  // we treat exactly the same as an empty options object.
-  const normalizedOpts = (Array.isArray(opts) ? {} : opts) as FieldOpts<C, T, R>;
+* Generic-only field builder.
+*
+* ```ts
+* class User extends Schema.from({
+*   name:  Of<one, string>({}),
+*   tags:  Of<many, string>({}),
+*   posts: with(Post).Of<many, nested<Post>[]?>({}),
+* });
+* ```
+*/
 
-  // Assemble the descriptor skeleton. `__t` and `value` are *phantom*
-  // properties used solely for type inference – they carry no runtime data.
-  const field: FieldType<FieldValue<C, T>> & Partial<FieldOpts<C, T, R>> = {
+// ───────────────────────────────────────────────────────────────────────────
+// Overloads – the return type *differs* when a `default` value is supplied.
+// ───────────────────────────────────────────────────────────────────────────
+
+// 1. **No options** (caller passed the ergonomic `[]` sentinel)
+export function Of<C extends Cardinality, T extends Typeable>(
+  opts: [],
+): Omit<FieldType<FieldValue<C, T>>, 'default'>;
+
+// 2. **Without default**
+export function Of<C extends Cardinality, T extends Typeable>(
+  opts: {
+    is?:
+      | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>
+      | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>[];
+    variantClasses?: SchemaClass[];
+  },
+): Omit<FieldType<FieldValue<C, T>>, 'default'>;
+
+// 3. **With default** (makes constructor input optional)
+export function Of<C extends Cardinality, T extends Typeable>(
+  opts: {
+    default: FieldValue<C, T> | (() => FieldValue<C, T>);
+    is?:
+      | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>
+      | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>[];
+    variantClasses?: SchemaClass[];
+  },
+): FieldType<FieldValue<C, T>> & {
+  default: FieldValue<C, T> | (() => FieldValue<C, T>);
+};
+
+// Implementation ----------------------------------------------------------------
+
+export function Of<C extends Cardinality, T extends Typeable>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  opts: any,
+) {
+  // Interpret the `[]` sentinel as an empty options object for ergonomics.
+  const normalized = Array.isArray(opts) ? {} : opts;
+
+  // Construct the skeleton descriptor.  The phantom `__t` and `value`
+  // properties exist *solely* for the type-system – they carry no runtime data.
+  const field: FieldType<FieldValue<C, T>> = {
     __t: undefined as unknown as FieldValue<C, T>,
     value: undefined as unknown as FieldValue<C, T>,
-  } as any;
+  } as FieldType<FieldValue<C, T>>;
 
-  // Copy recognised options directly – lossy cast is safe because the helper
-  // type guarantees compatibility.
-  Object.assign(field as any, normalizedOpts);
+  // Shallow-copy the supplied options.  This is safe because callers can only
+  // pass recognised keys thanks to the overload signatures above.
+  Object.assign(field as any, normalized);
 
   return field as any;
 }
