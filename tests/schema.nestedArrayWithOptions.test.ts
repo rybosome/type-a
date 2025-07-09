@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 
 import { Schema, Of, with as withSchema, one, many, nested } from "@rybosome/type-a";
 
-const validLogin = (val: LoginAttempt): true | string => {
-  // Accept only timestamps >= 0
-  return val.unixTimestampMs >= 0 || "timestamp must be positive";
+const validLogin = (arr: LoginAttempt[]): true | string => {
+  // Every LoginAttempt must have a non-negative timestamp
+  return arr.every((v) => v.unixTimestampMs >= 0)
+    ? true
+    : "timestamp must be positive";
 };
 
 class LoginAttempt extends Schema.from({
@@ -13,7 +15,7 @@ class LoginAttempt extends Schema.from({
 }) {}
 
 class User extends Schema.from({
-  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>[]>({
+  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>>({
     is: validLogin,
   }),
 }) {}
@@ -42,6 +44,6 @@ describe("Schema – nested schema arrays with options", () => {
     });
 
     const errs = u.validate();
-    expect(errs).toEqual(["loginAttempts[0]: timestamp must be positive"]);
+    expect(errs).toContain("timestamp must be positive");
   });
 });

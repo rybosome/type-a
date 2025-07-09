@@ -4,11 +4,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, one } from "@rybosome/type-a";
 
 describe("JSON serialization", () => {
   class BigIntModel extends Schema.from({
-    qty: Of<bigint>({}),
+    qty: Of<one, bigint>({}),
   }) {}
 
   it("serializes a normal BigInt to a JSON string", () => {

@@ -12,17 +12,17 @@ class LoginRecord extends Schema.from({
 }) {}
 
 class User extends Schema.from({
-  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>[]>({}),
+  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>>({}),
 }) {}
 
 class Comment extends Schema.from({ msg: Of<one, string>({}) }) {}
 
 class Post extends Schema.from({
-  comments: withSchema(Comment).Of<many, nested<Comment>[]>({}),
+  comments: withSchema(Comment).Of<many, nested<Comment>>({}),
 }) {}
 
 class Blog extends Schema.from({
-  posts: withSchema(Post).Of<many, nested<Post>[]>({}),
+  posts: withSchema(Post).Of<many, nested<Post>>({}),
 }) {}
 
 describe("Schema – parent-driven hasOne/hasMany", () => {

@@ -111,7 +111,7 @@ describe("Schema nesting", () => {
     }) {}
 
     class WorkHistory extends Schema.from({
-      employers: withSchema(Company).Of<many, nested<Company>[]>({}),
+      employers: withSchema(Company).Of<many, nested<Company>>({}),
     }) {}
 
     new WorkHistory({
