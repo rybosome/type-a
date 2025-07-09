@@ -14,7 +14,7 @@
  * {@link defaultRegistry} when none is provided).
  */
 
-import type { SchemaClass } from "@src/schema";
+import type { SchemaClass } from "@src/types";
 
 /** Shape exported only for typing – implementation is the built-in `WeakMap`. */
 export type Registry = WeakMap<
