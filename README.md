@@ -106,7 +106,7 @@ const u = new User({
 console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
 ````
 
-```
+````
 
 ## 🔄 Custom serialization / deserialization
 
@@ -135,7 +135,7 @@ e.when instanceof Date; // → true
 
 // `toJSON()` automatically applies the serializer
 JSON.stringify(e); // { "title": "Launch", "when": "2025-12-31T23:59:59.000Z" }
-```
+````
 
 Both functions must form an exact inverse pair – the serializer is typed as
 `(value: T) => Raw` while the deserializer is `(value: Raw) => T`. Supplying a
@@ -151,4 +151,7 @@ mismatched pair will fail at compile-time.
 | Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
 | Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
 | Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
+
+```
+
 ```
