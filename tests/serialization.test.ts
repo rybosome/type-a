@@ -6,12 +6,9 @@
 import { describe, it, expect } from "vitest";
 import { Schema, one } from "@rybosome/type-a";
 
-import type { Typeable } from "@rybosome/type-a";
-const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
-
 describe("JSON serialization", () => {
   class BigIntModel extends Schema.from({
-    qty: Of<bigint>({}),
+    qty: one().of<bigint>({}),
   }) {}
 
   it("serializes a normal BigInt to a JSON string", () => {

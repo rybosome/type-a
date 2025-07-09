@@ -9,19 +9,16 @@
 import { describe, it, expect } from "vitest";
 import { Schema, one } from "@rybosome/type-a";
 
-import type { Typeable } from "@rybosome/type-a";
-const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
-
 /* -------------------------------------------------------------------------- */
 /*  Schema under test                                                         */
 /* -------------------------------------------------------------------------- */
 
 class Collections extends Schema.from({
   // Fixed-length tuple – exactly two elements, boolean followed by number
-  pair: Of<[boolean, number]>(),
+  pair: one().of<[boolean, number]>({}),
 
   // Variadic tuple – at least one string, followed by zero or more strings
-  stringSequence: Of<[string, ...string[]]>(),
+  stringSequence: one().of<[string, ...string[]]>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */

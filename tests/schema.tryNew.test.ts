@@ -5,13 +5,10 @@
 import { describe, it, expect } from "vitest";
 import { Schema, one, nonEmpty, atLeast } from "@rybosome/type-a";
 
-import type { Typeable } from "@rybosome/type-a";
-const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
-
 // Create a minimal schema with two distinct fields
 const User = Schema.from({
-  name: Of<string>({ is: nonEmpty }),
-  age: Of<number>({ is: atLeast(18) }),
+  name: one().of<string>({ is: nonEmpty }),
+  age: one().of<number>({ is: atLeast(18) }),
 });
 
 describe("Schema.tryNew", () => {
