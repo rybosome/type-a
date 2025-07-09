@@ -80,8 +80,10 @@ describe("Schema", () => {
     });
 
     it("blocks omission of required keys at compile-time", () => {
-      // Intentionally constructing with missing required fields – should still type-check due to defaults
+      // Intentionally constructing with missing required fields – should **not** type-check.
+      // `@ts-expect-error` tells TypeScript we expect an error here so the build still passes.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // @ts-expect-error – required & nullable keys are missing
       const _bad = new OptModel({});
     });
   });

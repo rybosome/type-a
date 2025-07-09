@@ -62,22 +62,29 @@ function makeField<T extends Typeable>(
 
 import type { FieldWithDefault, FieldWithoutDefault } from "@src/types";
 
-type WithoutDefault<T extends Typeable> = Omit<FieldOpts<T>, "default"> & {
-  default?: never;
-};
+/**
+ * Helper type used by the builder overloads when *no* default value is
+ * supplied.  It is simply the {@link FieldOpts} interface minus the optional
+ * `default` key.  We intentionally do **not** try to outlaw `default` via
+ * `& { default?: never }` because that makes it impossible for an intersection
+ * with a *required* default (used by the other overload) to succeed – the
+ * conflicting property types (`never` vs `T`) collapse to `never`, breaking
+ * overload resolution.
+ */
+type WithoutDefault<T extends Typeable> = Omit<FieldOpts<T>, "default">;
 
 interface OneNoSchemaBuilder {
-  // Overload: default supplied → FieldWithDefault
+  /** Overload: `default` supplied → returns `FieldWithDefault` */
   of<T extends Typeable>(
-    opts: { default: T | (() => T) } & WithoutDefault<T>,
+    opts: FieldOpts<T> & { default: T | (() => T) },
   ): FieldWithDefault<T>;
-  // Overload: no default supplied → FieldWithoutDefault
+  /** Overload: no `default` supplied → returns `FieldWithoutDefault` */
   of<T extends Typeable>(opts: WithoutDefault<T>): FieldWithoutDefault<T>;
 }
 
 interface OneWithSchemaBuilder<S extends SchemaClass> {
   of<T extends Nested<S>>(
-    opts: { default: T | (() => T) } & WithoutDefault<T>,
+    opts: FieldOpts<T> & { default: T | (() => T) },
   ): FieldWithDefault<T> & { schemaClass: S };
   of<T extends Nested<S>>(
     opts: WithoutDefault<T>,
@@ -104,14 +111,14 @@ export function one(schemaClass?: SchemaClass): any {
 
 interface ManyNoSchemaBuilder {
   of<T extends Typeable[]>(
-    opts: { default: T | (() => T) } & WithoutDefault<T>,
+    opts: FieldOpts<T> & { default: T | (() => T) },
   ): FieldWithDefault<T>;
   of<T extends Typeable[]>(opts: WithoutDefault<T>): FieldWithoutDefault<T>;
 }
 
 interface ManyWithSchemaBuilder<S extends SchemaClass> {
   of<T extends Nested<S>[]>(
-    opts: { default: T | (() => T) } & WithoutDefault<T>,
+    opts: FieldOpts<T> & { default: T | (() => T) },
   ): FieldWithDefault<T> & { schemaClass: S };
   of<T extends Nested<S>[]>(
     opts: WithoutDefault<T>,
@@ -124,7 +131,7 @@ export function many<S extends SchemaClass>(
 ): ManyWithSchemaBuilder<S>;
 export function many(schemaClass?: SchemaClass): any {
   return {
-    of<T extends Typeable>(opts: FieldOpts<T>): FieldType<T> {
+    of<T extends Typeable[]>(opts: FieldOpts<T>): FieldType<T> {
       return makeField(opts, schemaClass);
     },
   };
