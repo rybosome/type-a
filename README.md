@@ -20,7 +20,7 @@ A minimal, class-first validation library for TypeScript — inspired by Python�
 
 ## 🚀 Quick Start
 
-````typescript
+```typescript
 import { Maybe, Of, Schema, atLeast, aUUID } from "@rybosome/type-a";
 
 //
@@ -74,6 +74,7 @@ if (badResult.errs) {
   //  id: 'not a UUID' is not a valid UUID
   //  name: OK
 }
+```
 
 ## 🗂️ Nested schemas & array helpers
 
@@ -104,9 +105,7 @@ const u = new User({
 });
 
 console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
-````
-
-````
+```
 
 ## 🔄 Custom serialization / deserialization
 
@@ -135,7 +134,7 @@ e.when instanceof Date; // → true
 
 // `toJSON()` automatically applies the serializer
 JSON.stringify(e); // { "title": "Launch", "when": "2025-12-31T23:59:59.000Z" }
-````
+```
 
 Both functions must form an exact inverse pair – the serializer is typed as
 `(value: T) => Raw` while the deserializer is `(value: Raw) => T`. Supplying a

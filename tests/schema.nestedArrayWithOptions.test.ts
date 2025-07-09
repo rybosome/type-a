@@ -13,8 +13,7 @@ class LoginAttempt extends Schema.from({
 }) {}
 
 class User extends Schema.from({
-  // Demonstrate array-of-schema with custom validator
-  loginAttempts: Of([LoginAttempt], { is: validLogin }),
+  loginAttempts: Of(Schema.hasMany(LoginAttempt), { is: validLogin }),
 }) {}
 
 describe("Schema – nested schema arrays with options", () => {

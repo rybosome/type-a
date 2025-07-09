@@ -4,12 +4,12 @@ import { Schema, Of, Variant } from "@rybosome/type-a";
 
 class A extends Schema.from({
   kind: Of<"A">(),
-  a: (Of as any).string(),
+  a: Of<string>(),
 }) {}
 
 class B extends Schema.from({
   kind: Of<"B">(),
-  b: (Of as any).number(),
+  b: Of<number>(),
 }) {}
 
 class Wrapper extends Schema.from({
@@ -28,7 +28,9 @@ describe("Schema – variant unions", () => {
   });
 
   it("validates variant fields", () => {
-    const bad = new Wrapper({ value: { kind: "B", b: "not num" } as any });
+    const bad = new Wrapper({
+      value: { kind: "B", b: "not num" as unknown as number },
+    });
     const errs = bad.validate();
     expect(errs.length).toBeGreaterThan(0);
   });

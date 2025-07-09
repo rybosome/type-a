@@ -3,9 +3,8 @@ import { describe, it, expect } from "vitest";
 import { Schema, Of } from "@rybosome/type-a";
 
 class Flags extends Schema.from({
-  // use sugar helpers (via cast) so runtime validators are attached
-  active: (Of as any).boolean(),
-  score: (Of as any).number(),
+  active: Of<boolean>(),
+  score: Of<number>(),
 }) {}
 
 describe("Schema – strict primitive validation", () => {
@@ -15,7 +14,8 @@ describe("Schema – strict primitive validation", () => {
   });
 
   it("rejects incorrect primitive types", () => {
-    const f = new Flags({ active: 1 as any, score: "bad" as any });
+    // @ts-expect-error: intentionally bad input for runtime test
+    const f = new Flags({ active: 1, score: "bad" });
     const errs = f.validate();
     expect(errs).toContain("active: expected boolean");
     expect(errs).toContain("score: expected finite number");

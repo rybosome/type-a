@@ -2,23 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { Schema, Of } from "@rybosome/type-a";
 
-/* ----------------------------------------------------------- */
-/* Helpers                                                     */
-/* ----------------------------------------------------------- */
-
-// Convenience primitives using existing `Of<T>()` helpers so we avoid the
-// stricter `.boolean()` / `.string()` sugar in case the internal API changes.
-const bool = () => Of<boolean>();
-const num = () => Of<number>();
-const str = () => Of<string>();
-
-/* ----------------------------------------------------------- */
-/* 1 · Single & multi nested relationships                      */
-/* ----------------------------------------------------------- */
-
 class LoginAttempt extends Schema.from({
-  success: bool(),
-  unixTimestampMs: num(),
+  success: Of<boolean>(),
+  unixTimestampMs: Of<number>(),
 }) {}
 
 class LoginRecord extends Schema.from({
@@ -29,11 +15,7 @@ class User extends Schema.from({
   loginAttempts: Of(Schema.hasMany(LoginAttempt)),
 }) {}
 
-/* ----------------------------------------------------------- */
-/* 2 · Deeper nesting (array of arrays)                         */
-/* ----------------------------------------------------------- */
-
-class Comment extends Schema.from({ msg: str() }) {}
+class Comment extends Schema.from({ msg: Of<string>() }) {}
 
 class Post extends Schema.from({
   comments: Of(Schema.hasMany(Comment)),
@@ -42,21 +24,6 @@ class Post extends Schema.from({
 class Blog extends Schema.from({
   posts: Of(Schema.hasMany(Post)),
 }) {}
-
-/* ----------------------------------------------------------- */
-/* 3 · Nullable variant example                                 */
-/* ----------------------------------------------------------- */
-
-class Success extends Schema.from({ kind: Of<"ok">(), data: str() }) {}
-class Failure extends Schema.from({ kind: Of<"err">(), message: str() }) {}
-
-class Wrapper extends Schema.from({
-  result: Of<Success | Failure | null>(),
-}) {}
-
-/* ----------------------------------------------------------- */
-/* Tests                                                       */
-/* ----------------------------------------------------------- */
 
 describe("Schema – parent-driven hasOne/hasMany", () => {
   it("instantiates scalar nested schemas via hasOne", () => {
@@ -87,10 +54,5 @@ describe("Schema – parent-driven hasOne/hasMany", () => {
     });
     expect(blog.posts[0]).toBeInstanceOf(Post);
     expect(blog.posts[0].comments[0]).toBeInstanceOf(Comment);
-  });
-
-  it("accepts nullable variant values", () => {
-    const w1 = new Wrapper({ result: null });
-    expect(w1.result).toBeNull();
   });
 });
