@@ -196,34 +196,6 @@ export function Of<T extends Typeable, R = T>(opts: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T, R> & { serdes: [(val: T) => R, (raw: R) => T] };
 
-// (duplicate discriminated-union overload removed; see earlier definition)
-// Nested Schema without options (single instance)
-export function Of<S extends SchemaClass>(
-  schemaClass: S,
-): FieldWithoutDefault<OutputOf<S>> & { schemaClass: S };
-
-// Nested Schema with options (single instance)
-export function Of<S extends SchemaClass>(
-  schemaClass: S,
-  opts?: {
-    default?: OutputOf<S> | (() => OutputOf<S>);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
-  },
-): FieldType<OutputOf<S>> & { schemaClass: S };
-
-// Nested Schema **array** with options
-export function Of<S extends SchemaClass>(
-  schemaClass: S[],
-  opts?: {
-    default?: OutputOf<S>[] | (() => OutputOf<S>[]);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
-  },
-): FieldType<OutputOf<S>[]> & { schemaClass: S };
-
 // Relationship descriptor – hasOne (single)
 export function Of<S extends SchemaClass>(
   rel: RelationshipDescriptor<S, "one">,
@@ -287,50 +259,7 @@ export function Of(...args: any[]): any {
   };
 
   // ------------------------------------------------------------------
-  // Case A – args[0] is a SchemaClass constructor (single instance)
-  // ------------------------------------------------------------------
-  if (
-    args.length > 0 &&
-    typeof args[0] === "function" &&
-    "_schema" in args[0]
-  ) {
-    const schemaClass = args[0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    return makeField(
-      {
-        schemaClass,
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case B – args[0] is an **array** containing a single SchemaClass
-  //          constructor (array of instances)
-  // ------------------------------------------------------------------
-  if (
-    args.length > 0 &&
-    Array.isArray(args[0]) &&
-    args[0].length === 1 &&
-    typeof args[0][0] === "function" &&
-    "_schema" in args[0][0]
-  ) {
-    const schemaClass = args[0][0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    // The generic `T` here becomes `OutputOf<typeof schemaClass>[]`
-    return makeField(
-      {
-        schemaClass,
-        // annotate value as array via generic parameter – nothing to set at runtime
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case C – args[0] is a RelationshipDescriptor (hasOne / hasMany)
+  // Case A – args[0] is a RelationshipDescriptor (hasOne / hasMany)
   // ------------------------------------------------------------------
 
   if (
@@ -352,7 +281,7 @@ export function Of(...args: any[]): any {
   }
 
   // ------------------------------------------------------------------
-  // Case D – primitive / non-schema field definitions (legacy path)
+  // Case B – primitive / non-schema field definitions
   // ------------------------------------------------------------------
 
   // Variant union support: opts object with `variantClasses` key.
