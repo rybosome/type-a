@@ -7,7 +7,9 @@ const deserializeDate = (s: string) => new Date(s);
 
 class User extends Schema.from({
   name: Of<string>(),
-  created: Of<serdes<Date, string>>({ serdes: [serializeDate, deserializeDate] }),
+  created: Of<serdes<Date, string>>({
+    serdes: [serializeDate, deserializeDate],
+  }),
 }) {}
 
 describe("Schema property custom (de)serialisers", () => {
@@ -17,7 +19,7 @@ describe("Schema property custom (de)serialisers", () => {
 
     // Constructor should convert string → Date
     expect(u.created).toBeInstanceOf(Date);
-    expect((u.created).toISOString()).toBe(iso);
+    expect(u.created.toISOString()).toBe(iso);
 
     // toJSON should convert Date → string
     const json = u.toJSON();

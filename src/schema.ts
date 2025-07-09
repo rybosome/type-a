@@ -7,6 +7,7 @@ import type {
   Result,
   Typeable,
   SchemaInstance,
+  serdes,
 } from "@src/types";
 
 import { RELATIONSHIP, RelationshipDescriptor } from "@src/types";
@@ -189,7 +190,24 @@ export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
 
-// 3. Primitive field **with custom serdes** (optional default)
+// 3. Primitive field **with explicit branded `serdes<Stored, Raw>` marker**
+export function Of<
+  S extends serdes<any, any>,
+  Stored extends Typeable = S extends serdes<infer ST, any> ? ST : never,
+  Raw = S extends serdes<any, infer RW> ? RW : never,
+>(opts: {
+  serdes:
+    | [(val: Stored) => Raw, (raw: Raw) => Stored]
+    | [(raw: Raw) => Stored, (val: Stored) => Raw];
+  default?: Stored | (() => Stored);
+  is?:
+    | LogicalConstraint<NonNullable<Stored>>
+    | LogicalConstraint<NonNullable<Stored>>[];
+}): FieldType<Stored, Raw> & {
+  serdes: [(val: Stored) => Raw, (raw: Raw) => Stored];
+};
+
+// 4. Primitive field **with custom serdes** (optional default)
 export function Of<T extends Typeable, R = T>(opts: {
   serdes: [(val: T) => R, (raw: R) => T] | [(raw: R) => T, (val: T) => R];
   default?: T | (() => T);
@@ -345,23 +363,30 @@ export function Of(...args: any[]): any {
 
 type Fields = Record<string, FieldType<any>>;
 
-type ValueType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V // Preserve generic param (handles arrays automatically)
-      : OutputOf<S>
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
+// Helper to extract the in-memory (stored) type from a serdes tuple.
+type __StoredOfSerdes<F> = F extends { readonly __t: infer V } ? V : never;
+
+type ValueType<F> = F extends { serdes?: any }
+  ? __StoredOfSerdes<F>
+  : F extends { schemaClass: infer S }
+    ? S extends SchemaClass
       ? F extends FieldType<infer V>
-        ? V extends any[]
-          ? OutputOf<Arr[number]>[]
-          : OutputOf<Arr[number]>
-        : OutputOf<Arr[number]>
+        ? V // Preserve generic param (handles arrays automatically)
+        : OutputOf<S>
       : never
-    : F extends FieldType<infer V>
-      ? V
-      : never;
+    : F extends { variantClasses: infer Arr }
+      ? Arr extends SchemaClass[]
+        ? F extends FieldType<infer V>
+          ? V extends any[]
+            ? OutputOf<Arr[number]>[]
+            : OutputOf<Arr[number]>
+          : OutputOf<Arr[number]>
+        : F extends FieldType<infer V>
+          ? V
+          : never
+      : F extends FieldType<infer V>
+        ? V
+        : never;
 
 type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
 
@@ -395,23 +420,44 @@ type RequiredKeys<F extends Fields> = {
  *  • Keys in `RequiredKeys` are mandatory.
  *  • Keys in `OptionalKeys` may be omitted.
  */
-type InputType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V extends any[]
-        ? InputOf<S>[]
-        : InputOf<S>
-      : never
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
+// Helper to extract the *raw* (external) type from a serdes tuple.
+type __RawOfSerdes<F> = F extends {
+  serdes?: [(val: any) => infer Raw, (raw: infer Raw2) => any];
+}
+  ? Raw | Raw2
+  : F extends {
+        serdes?: [(raw: infer Raw3) => any, (val: any) => infer Raw4];
+      }
+    ? Raw3 | Raw4
+    : never;
+
+type InputType<F> = F extends { serdes?: any }
+  ? __RawOfSerdes<F>
+  : F extends { schemaClass: infer S }
+    ? S extends SchemaClass
       ? F extends FieldType<infer V>
         ? V extends any[]
-          ? InputOf<Arr[number]>[]
+          ? InputOf<S>[]
+          : InputOf<S>
+        : F extends FieldType<any, infer R>
+          ? R
+          : never
+      : F extends FieldType<any, infer R>
+        ? R
+        : never
+    : F extends { variantClasses: infer Arr }
+      ? Arr extends SchemaClass[]
+        ? F extends FieldType<infer V>
+          ? V extends any[]
+            ? InputOf<Arr[number]>[]
+            : InputOf<Arr[number]>
           : InputOf<Arr[number]>
-        : InputOf<Arr[number]>
-      : never
-    : ValueType<F>;
+        : F extends FieldType<any, infer R>
+          ? R
+          : never
+      : F extends FieldType<any, infer R>
+        ? R
+        : never;
 
 type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;
