@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, one, many, nested, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, Of, with as withSchema, one, many, nested, nonEmpty, atLeast } from "@rybosome/type-a";
 
 /**
  * Tests for arbitrarily-nested schema support.
@@ -17,7 +17,7 @@ describe("Schema nesting", () => {
 
   class User extends Schema.from({
     name: Of<one, string>({ is: nonEmpty }),
-    address: Of<one, nested<Address>>({ schemaClass: Address }),
+    address: withSchema(Address).Of<one, nested<Address>>({}),
   }) {}
 
   it("instantiates with nested object and exposes nested fields", () => {
@@ -71,12 +71,12 @@ describe("Schema nesting", () => {
   it("supports deeply-nested structures", () => {
     class Company extends Schema.from({
       name: Of<one, string>({ is: nonEmpty }),
-      hq: Of<one, nested<Address>>({ schemaClass: Address }),
+      hq: withSchema(Address).Of<one, nested<Address>>({}),
     }) {}
 
     class Account extends Schema.from({
-      owner: Of<one, nested<User>>({ schemaClass: User }),
-      employer: Of<one, nested<Company>>({ schemaClass: Company }),
+      owner: withSchema(User).Of<one, nested<User>>({}),
+      employer: withSchema(Company).Of<one, nested<Company>>({}),
     }) {}
 
     const acct = new Account({
@@ -111,7 +111,7 @@ describe("Schema nesting", () => {
     }) {}
 
     class WorkHistory extends Schema.from({
-      employers: Of<many, nested<Company>>({ schemaClass: Company }),
+      employers: withSchema(Company).Of<many, nested<Company>[]>({}),
     }) {}
 
     new WorkHistory({

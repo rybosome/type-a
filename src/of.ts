@@ -4,7 +4,9 @@
 
 import type { Cardinality, one, many } from "@src/cardinality";
 import type { _NestedSchemaOf, nested } from "@src/nested";
-import type { LogicalConstraint, SchemaClass } from "@src/types";
+import type { LogicalConstraint } from "@src/types";
+import type { SchemaClass } from "@src/schema";
+import type { Typeable } from "@src/types";
 
 import type { FieldType } from "@src/schema";
 
@@ -24,19 +26,17 @@ type FieldValue<C extends Cardinality, T> = C extends typeof one
     ? UnwrapNested<T>[]
     : never;
 
-/** Extract the nested schema constructor when `T` is `nested<S>` – otherwise
-* resolves to `never`. */
-type MaybeSchemaClass<T> = _NestedSchemaOf<T> extends infer S
-  ? S extends SchemaClass
-    ? S
-    : never
-  : never;
+// Extracting the nested schema constructor is no longer needed here because
+// callers now supply it exclusively via the `with()` helper.  Keep the utility
+// around (unused) for potential future internal use – it is not re-exported.
+/* eslint-disable @typescript-eslint/ban-types -- util */
+type _ObsoleteNestedSchemaOf<T> = _NestedSchemaOf<T> extends infer S ? S : never;
+/* eslint-enable */
 
 /**
 * Options object accepted by the `Of<C, T>()` builder. Most properties map
-* 1-to-1 to {@link FieldType}. The `schemaClass` key is **required** when `T`
-* is a {@link nested} wrapper so that the runtime can instantiate nested
-* schemas automatically.
+* 1-to-1 to {@link FieldType}.  Nested schemas are now declared exclusively via
+* the {@link with} helper – therefore **no** constructor is accepted here.
 */
 export interface FieldOpts<C extends Cardinality, T> {
   default?: FieldValue<C, T> | (() => FieldValue<C, T>);
@@ -48,13 +48,6 @@ export interface FieldOpts<C extends Cardinality, T> {
     (raw: unknown) => FieldValue<C, T>,
   ];
   variantClasses?: SchemaClass[];
-
-  /**
-   * **Required** when `T` is `nested<S>`; otherwise ignored. The constructor
-   * is stored on the field descriptor so that nested objects/arrays are
-   * automatically instantiated during `Schema` construction and validation.
-   */
-  schemaClass?: MaybeSchemaClass<T>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -68,11 +61,11 @@ export interface FieldOpts<C extends Cardinality, T> {
 * class User extends Schema.from({
 *   name:  Of<one, string>({}),
 *   tags:  Of<many, string>({}),
-*   posts: Of<many, nested<Post>>({ schemaClass: Post }),
+*   posts: with(Post).Of<many, nested<Post>[]?>({}),
 * });
 * ```
 */
-export function Of<C extends Cardinality, T>(
+export function Of<C extends Cardinality, T extends Typeable>(
   opts: FieldOpts<C, T>,
 ): FieldType<FieldValue<C, T>> {
   // Assemble the descriptor skeleton. `__t` and `value` are *phantom*
