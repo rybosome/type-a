@@ -9,6 +9,8 @@ import type {
   SchemaInstance,
 } from "@src/types";
 
+import { RELATIONSHIP, RelationshipDescriptor } from "@src/types";
+
 import type { Registry } from "@src/registry";
 import { defaultRegistry } from "@src/registry";
 
@@ -127,6 +129,22 @@ export interface FieldType<T extends Typeable, R = T> {
    * instantiates it.  Mutually exclusive with {@link FieldType.schemaClass}.
    */
   variantClasses?: SchemaClass[];
+
+  /**
+   * Optional custom serialisation/deserialisation tuple applied to the raw
+   * value during `Schema` construction and when calling `toJSON()`.  The first
+   * element is the **deserialiser** (raw -> in-memory), the second is the
+   * **serialiser** (in-memory -> raw).
+   */
+  serdes?: [(raw: R) => T, (val: T) => R];
+
+  /**
+   * Relationship descriptor produced by {@link Schema.hasOne} /
+   * {@link Schema.hasMany}.  Included primarily for registry bookkeeping – the
+   * core runtime logic uses {@link schemaClass} and the field's generic type
+   * (array vs scalar) for instantiation.
+   */
+  relation?: RelationshipDescriptor<any>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -204,6 +222,13 @@ export function Of<T extends Typeable>(opts: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldWithDefault<T>;
 
+// 3. Primitive field **with custom serdes** (optional default)
+export function Of<T extends Typeable, R = T>(opts: {
+  serdes: [(val: T) => R, (raw: R) => T] | [(raw: R) => T, (val: T) => R];
+  default?: T | (() => T);
+  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
+}): FieldType<T, R> & { serdes: [(val: T) => R, (raw: R) => T] };
+
 // (duplicate discriminated-union overload removed; see earlier definition)
 // Nested Schema without options (single instance)
 export function Of<S extends SchemaClass>(
@@ -232,6 +257,34 @@ export function Of<S extends SchemaClass>(
   },
 ): FieldType<OutputOf<S>[]> & { schemaClass: S };
 
+// Relationship descriptor – hasOne (single)
+export function Of<S extends SchemaClass>(
+  rel: RelationshipDescriptor<S, "one">,
+  opts?: {
+    default?: OutputOf<S> | (() => OutputOf<S>);
+    is?:
+      | LogicalConstraint<NonNullable<OutputOf<S>>>
+      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
+  },
+): FieldType<OutputOf<S>> & {
+  schemaClass: S;
+  relation: RelationshipDescriptor<S, "one">;
+};
+
+// Relationship descriptor – hasMany (array)
+export function Of<S extends SchemaClass>(
+  rel: RelationshipDescriptor<S, "many">,
+  opts?: {
+    default?: OutputOf<S>[] | (() => OutputOf<S>[]);
+    is?:
+      | LogicalConstraint<NonNullable<OutputOf<S>>>
+      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
+  },
+): FieldType<OutputOf<S>[]> & {
+  schemaClass: S;
+  relation: RelationshipDescriptor<S, "many">;
+};
+
 export function Of(...args: any[]): any {
   /* -------------------------------------------------------------- */
   /* Detect argument pattern                                        */
@@ -259,6 +312,9 @@ export function Of(...args: any[]): any {
     if (opts?.is) (base as any).is = opts.is;
     if (opts && "default" in opts && opts.default !== undefined) {
       (base as any).default = opts.default;
+    }
+    if (opts && "serdes" in opts && (opts as any).serdes !== undefined) {
+      (base as any).serdes = (opts as any).serdes;
     }
     return base;
   };
@@ -307,7 +363,29 @@ export function Of(...args: any[]): any {
   }
 
   // ------------------------------------------------------------------
-  // Case C – primitive / non-schema field definitions (legacy path)
+  // Case C – args[0] is a RelationshipDescriptor (hasOne / hasMany)
+  // ------------------------------------------------------------------
+
+  if (
+    args.length > 0 &&
+    typeof args[0] === "object" &&
+    args[0] !== null &&
+    (args[0] as any)[RELATIONSHIP] === true
+  ) {
+    const rel = args[0] as RelationshipDescriptor<SchemaClass>;
+    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
+
+    return makeField(
+      {
+        schemaClass: rel.schemaClass,
+        relation: rel,
+      },
+      opts,
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Case D – primitive / non-schema field definitions (legacy path)
   // ------------------------------------------------------------------
 
   // Variant union support: opts object with `variantClasses` key.
@@ -358,6 +436,9 @@ export function Of(...args: any[]): any {
   if (opts && "default" in opts && opts.default !== undefined) {
     (base as any).default = opts.default;
   }
+  if (opts && "serdes" in opts && (opts as any).serdes !== undefined) {
+    (base as any).serdes = (opts as any).serdes;
+  }
 
   return base;
 }
@@ -397,6 +478,29 @@ Object.assign(Of, {
       is: opts?.is ?? DEFAULT_VALIDATORS.string,
     } as any),
 });
+
+// ------------------------------------------------------------------------------------------------
+// Static helper *types* – attach to the `Of` namespace so that callers get proper IntelliSense and
+// type-safety when using `Of.boolean()`, `Of.number()`, `Of.string()`.
+// ------------------------------------------------------------------------------------------------
+
+/* eslint-disable @typescript-eslint/no-namespace */
+export namespace Of {
+  export declare const boolean: (opts?: {
+    default?: boolean | (() => boolean);
+    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
+  }) => FieldType<boolean>;
+
+  export declare const number: (opts?: {
+    default?: number | (() => number);
+    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
+  }) => FieldType<number>;
+
+  export declare const string: (opts?: {
+    default?: string | (() => string);
+    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
+  }) => FieldType<string>;
+}
 
 // --------------------
 // Schema and Model Types
@@ -536,12 +640,27 @@ export class Schema<F extends Fields> implements SchemaInstance {
       }
       const supplied = (input as Record<string, unknown>)[key as string];
       const def = fieldDef.default;
-      const value =
+      const rawValue =
         supplied !== undefined
           ? supplied
           : typeof def === "function"
             ? (def as () => unknown)()
             : def;
+
+      /* ----------------------------------------------- */
+      /* Apply custom deserialiser (raw -> in-memory)    */
+      /* ----------------------------------------------- */
+
+      const deserialised = (() => {
+        if (!fieldDef.serdes) return rawValue;
+        const [, deserialize] = fieldDef.serdes as [
+          (val: any) => unknown,
+          (raw: unknown) => unknown,
+        ];
+        // Only transform when value is non-nullish – keep null/undefined as-is.
+        if (rawValue === null || rawValue === undefined) return rawValue;
+        return deserialize(rawValue as any);
+      })();
 
       // Handle nested Schema instantiation when necessary
       const nestedValue = (() => {
@@ -550,10 +669,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
         if (
           (!singleCtor && !ctorSet) ||
-          value === undefined ||
-          value === null
+          deserialised === undefined ||
+          deserialised === null
         ) {
-          return value;
+          return deserialised;
         }
 
         // Helper to pick constructor for discriminated unions ----------------
@@ -618,16 +737,13 @@ export class Schema<F extends Fields> implements SchemaInstance {
         };
 
         // Array-of-schema support
-        if (Array.isArray(value)) {
-          return value.map(convert);
+        if (Array.isArray(deserialised)) {
+          return (deserialised as unknown[]).map(convert);
         }
-        return convert(value);
+        return convert(deserialised);
       })();
 
-      const nestedValue =
-        fieldDef.schemaClass != null
-          ? instantiateNestedSchemas(deserialised, fieldDef.schemaClass)
-          : deserialised;
+      // nestedValue already computed above; re-use here
 
       if (fieldDef.schemaClass) {
         console.error(`[${String(key)}] nestedValue:`, nestedValue);
@@ -666,8 +782,8 @@ export class Schema<F extends Fields> implements SchemaInstance {
               )[t];
             };
 
-            // Determine based on *runtime value* or default sentinel "undefined".
-            const validator = pick(value);
+            // Determine based on *runtime value* (after deserialisation) or default sentinel "undefined".
+            const validator = pick(deserialised);
             return validator;
           }
 
@@ -703,6 +819,29 @@ export class Schema<F extends Fields> implements SchemaInstance {
     class ModelWithSchema extends Schema<F> {
       static _schema = schema;
       static __registry = registry;
+    }
+
+    /* -------------------------------------------------------- */
+    /* Populate registry with parent-driven relationships       */
+    /* -------------------------------------------------------- */
+
+    for (const [fieldName, fieldDef] of Object.entries(schema)) {
+      const rel = (fieldDef as FieldType<any>).relation as
+        | RelationshipDescriptor<SchemaClass>
+        | undefined;
+      if (!rel) continue;
+
+      let map = registry.get(ModelWithSchema as unknown as SchemaClass);
+      if (!map) {
+        map = new Map();
+        registry.set(ModelWithSchema as unknown as SchemaClass, map);
+      }
+
+      if (rel.cardinality === "many") {
+        map.set(fieldName, [rel.schemaClass]);
+      } else {
+        map.set(fieldName, rel.schemaClass);
+      }
     }
 
     type StaticHelpers = {
@@ -881,8 +1020,20 @@ export class Schema<F extends Fields> implements SchemaInstance {
           ? (field.value as Schema<any>).toJSON()
           : field.value;
       })();
+      // Apply custom serialiser when supplied (in-memory -> raw)
+      const rendered = (() => {
+        if (!field.serdes) return raw;
+        const [serialize] = field.serdes as [
+          (val: unknown) => unknown,
+          (raw: unknown) => unknown,
+        ];
+        if (raw == null) return raw;
+        if (Array.isArray(raw)) return raw.map(serialize);
+        return serialize(raw);
+      })();
+
       // Recursively serialise (handles Map & nested objects)
-      (json as Record<string, unknown>)[key] = serialise(raw);
+      (json as Record<string, unknown>)[key] = serialise(rendered);
     }
     return json;
   }
@@ -920,5 +1071,48 @@ export class Schema<F extends Fields> implements SchemaInstance {
     void _parentFn;
     void _opts;
     return this;
+  }
+
+  /* ---------------------------------------------------------- */
+  /* Relationship helpers                                       */
+  /* ---------------------------------------------------------- */
+
+  /**
+   * Declare a *single* child relationship (has-one) to the supplied schema
+   * class.  Intended for inline use inside {@link Of} field definitions, e.g.:
+   *
+   * ```ts
+   * class LoginAttempt extends Schema.from({ … }) {}
+   * class LoginRecord extends Schema.from({
+   *   loginAttempt: Of(LoginRecord.hasOne(LoginAttempt)),
+   * }) {}
+   * ```
+   *
+   * At runtime this method creates **and returns** a lightweight marker object
+   * consumed by the `Of()` factory.  The descriptor is purely declarative – it
+   * carries *metadata only* and does not influence control-flow on its own.
+   */
+  static hasOne<Child extends SchemaClass>(
+    child: Child,
+  ): RelationshipDescriptor<Child, "one"> {
+    return {
+      [RELATIONSHIP]: true,
+      schemaClass: child,
+      cardinality: "one",
+    } as RelationshipDescriptor<Child, "one">;
+  }
+
+  /**
+   * Declare a *multi* child relationship (has-many) to the supplied schema
+   * class.  See {@link hasOne} for usage details.
+   */
+  static hasMany<Child extends SchemaClass>(
+    child: Child,
+  ): RelationshipDescriptor<Child, "many"> {
+    return {
+      [RELATIONSHIP]: true,
+      schemaClass: child,
+      cardinality: "many",
+    } as RelationshipDescriptor<Child, "many">;
   }
 }

@@ -13,7 +13,9 @@ class PetOwner extends Schema.from({
 }) {}
 
 const o = new PetOwner({ pet: { kind: "cat", meow: "nya" } });
-o.pet.meow; // "nya" – correctly typed as Cat
+// Narrow union via `as const` assertion or by widening variable
+const cat = o.pet as Cat;
+cat.meow; // "nya" – correctly typed as Cat
 
 // Validation of wrong discriminator fails
 const bad = new PetOwner({ pet: { kind: "frog" } } as any);

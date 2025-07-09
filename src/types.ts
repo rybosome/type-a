@@ -105,6 +105,43 @@ export type ErrLog<T> = {
 export type Maybe<T> = Result<T, ErrLog<T>>;
 
 /* ------------------------------------------------------------------ */
+/* Relationship descriptor                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Unique symbol used to brand {@link RelationshipDescriptor} instances at
+ * runtime.  Exported so that helper functions in {@link Schema} can detect the
+ * marker without relying on fragile `instanceof` checks (the object is a plain
+ * literal).
+ *
+ * The symbol is *not* enumerable so it does not pollute `JSON.stringify` or
+ * other reflective uses of the descriptor.
+ */
+export const RELATIONSHIP = Symbol("__type_a_relationship__");
+
+/** Cardinality variants supported by {@link RelationshipDescriptor}. */
+export type RelationshipCardinality = "one" | "many";
+
+/**
+ * Marker object returned by {@link Schema.hasOne} / {@link Schema.hasMany} and
+ * consumed by `Of()`.  At runtime this is simply a tagged object carrying the
+ * *target* schema class and the requested cardinality.  No methods are
+ * attached – the descriptor is treated as an opaque payload by the rest of the
+ * library.
+ */
+export interface RelationshipDescriptor<
+  S extends { new (input: any): SchemaInstance },
+  C extends RelationshipCardinality = RelationshipCardinality,
+> {
+  /** brand */
+  readonly [RELATIONSHIP]: true;
+  /** The child schema constructor to instantiate. */
+  readonly schemaClass: S;
+  /** Cardinality flag – "one" for single instance, "many" for arrays. */
+  readonly cardinality: C;
+}
+
+/* ------------------------------------------------------------------ */
 /* Variant                                                             */
 /* ------------------------------------------------------------------ */
 
