@@ -9,6 +9,9 @@ import type {
   SchemaInstance,
 } from "@src/types";
 
+import type { Registry } from "@src/registry";
+import { defaultRegistry } from "@src/registry";
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -16,9 +19,11 @@ import type {
 /**
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
-type SchemaClass = {
+export type SchemaClass = {
   new (input: any): SchemaInstance;
   _schema: Fields;
+  // Registry captured at declaration time (internal)
+  __registry?: Registry;
 };
 
 // --------------------
@@ -70,13 +75,35 @@ export interface FieldType<T extends Typeable> {
   schemaClass?: SchemaClass;
 
   /**
-   * Optional *set* of Schema classes used for explicit discriminated unions.
-   * When provided the runtime picks the correct constructor from this list
-   * based on the incoming raw object's discriminator value and instantiates
-   * it.  Mutually exclusive with {@link FieldType.schemaClass}.
+   * Optional *set* of Schema classes used for explicit variant unions. When
+   * provided the runtime picks the correct constructor from this list based on
+   * the incoming raw object's discriminator value (see {@link variantKey}) and
+   * instantiates it.  Mutually exclusive with {@link FieldType.schemaClass}.
    */
-  schemaClasses?: SchemaClass[];
+  variantClasses?: SchemaClass[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Default primitive validators                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Built-in primitive validators automatically applied to any field that has
+ * **no** nested `schemaClass` / `variantClasses` **and** no user-supplied
+ * `is` predicate.  The table keys are raw JavaScript `typeof` strings or
+ * special sentinels for complex objects (`array`, `date`, `object`).
+ */
+const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
+  boolean: (v: unknown) => typeof v === "boolean" || "expected boolean", // primitive boolean
+  number: (v: unknown) =>
+    (typeof v === "number" && Number.isFinite(v)) || "expected finite number",
+  string: (v: unknown) => typeof v === "string" || "expected string",
+  // bigint & date left out for now – user may supply custom validators
+  array: (v: unknown) => Array.isArray(v) || "expected array",
+  object: (v: unknown) =>
+    (v !== null && typeof v === "object" && !Array.isArray(v)) ||
+    "expected plain object",
+};
 
 /* ------------------------------------------------------------------ */
 /* Of                                                                 */
@@ -102,16 +129,17 @@ type FieldWithDefault<T extends Typeable> = FieldType<T> & {
 type FieldWithoutDefault<T extends Typeable> = Omit<FieldType<T>, "default">;
 
 // --------------------
-// Overload A — Discriminated Union (schemaClasses)
+// Overload A — Variant union (variantClasses)
 // --------------------
 
+// Variant overload accepting a list of variant constructors
 export function Of<DU extends Typeable>(opts: {
-  schemaClasses: SchemaClass[];
+  variantClasses: SchemaClass[];
   default?: DU | (() => DU);
   is?:
     | LogicalConstraint<NonNullable<DU>>
     | LogicalConstraint<NonNullable<DU>>[];
-}): FieldType<DU> & { schemaClasses: SchemaClass[] };
+}): FieldType<DU> & { variantClasses: SchemaClass[] };
 
 /**
  * Create a field descriptor.
@@ -234,35 +262,35 @@ export function Of(...args: any[]): any {
   // Case C – primitive / non-schema field definitions (legacy path)
   // ------------------------------------------------------------------
 
-  // Discriminated-union support: opts object with `schemaClasses` key.
+  // Variant union support: opts object with `variantClasses` key.
   if (
     args.length === 1 &&
     args[0] &&
     typeof args[0] === "object" &&
     !Array.isArray(args[0]) &&
-    Array.isArray((args[0] as any).schemaClasses)
+    Array.isArray((args[0] as any).variantClasses)
   ) {
     const optsObj = args[0] as {
-      schemaClasses: SchemaClass[];
+      variantClasses: SchemaClass[];
       default?: Typeable | (() => Typeable);
       is?: LogicalConstraint<Typeable> | LogicalConstraint<Typeable>[];
     };
 
-    const { schemaClasses, ...rest } = optsObj;
+    const { variantClasses, ...rest } = optsObj;
 
-    // Validate schemaClasses shape at runtime for helpful errors.
+    // Validate variantClasses shape at runtime for helpful errors.
     if (
-      schemaClasses.length === 0 ||
-      !schemaClasses.every((c) => typeof c === "function" && "_schema" in c)
+      variantClasses.length === 0 ||
+      !variantClasses.every((c) => typeof c === "function" && "_schema" in c)
     ) {
       throw new Error(
-        "Of(): `schemaClasses` must be an array of Schema classes with static _schema",
+        "Of(): `variantClasses` must be an array of Schema classes with static _schema",
       );
     }
 
     return makeField(
       {
-        schemaClasses,
+        variantClasses,
       },
       rest as Parameters<typeof makeField>[1],
     );
@@ -286,6 +314,42 @@ export function Of(...args: any[]): any {
   return base;
 }
 
+// ------------------------------------------------------------------
+// Sugar helpers – strict primitive shortcuts
+// ------------------------------------------------------------------
+
+// Attach helper factories directly to the `Of` function object to avoid
+// introducing a `namespace` (incompatible with ESM).
+
+Object.assign(Of, {
+  boolean: (opts?: {
+    default?: boolean | (() => boolean);
+    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
+  }) =>
+    Of<boolean>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.boolean,
+    } as any),
+
+  number: (opts?: {
+    default?: number | (() => number);
+    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
+  }) =>
+    Of<number>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.number,
+    } as any),
+
+  string: (opts?: {
+    default?: string | (() => string);
+    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
+  }) =>
+    Of<string>({
+      ...(opts ?? {}),
+      is: opts?.is ?? DEFAULT_VALIDATORS.string,
+    } as any),
+});
+
 // --------------------
 // Schema and Model Types
 // --------------------
@@ -298,7 +362,7 @@ type ValueType<F> = F extends { schemaClass: infer S }
       ? V // Preserve generic param (handles arrays automatically)
       : OutputOf<S>
     : never
-  : F extends { schemaClasses: infer Arr }
+  : F extends { variantClasses: infer Arr }
     ? Arr extends SchemaClass[]
       ? F extends FieldType<infer V>
         ? V extends any[]
@@ -350,7 +414,7 @@ type InputType<F> = F extends { schemaClass: infer S }
         : InputOf<S>
       : never
     : never
-  : F extends { schemaClasses: infer Arr }
+  : F extends { variantClasses: infer Arr }
     ? Arr extends SchemaClass[]
       ? F extends FieldType<infer V>
         ? V extends any[]
@@ -420,7 +484,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
       // Handle nested Schema instantiation when necessary
       const nestedValue = (() => {
         const singleCtor = fieldDef.schemaClass;
-        const ctorSet = fieldDef.schemaClasses;
+        const ctorSet = fieldDef.variantClasses;
 
         if (
           (!singleCtor && !ctorSet) ||
@@ -510,7 +574,31 @@ export class Schema<F extends Fields> implements SchemaInstance {
           if (Array.isArray(rawIs)) {
             return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
           }
-          return rawIs;
+          if (rawIs) return rawIs;
+
+          /* ---------------------------------------------------- */
+          /* Fallback to built-in primitive validators            */
+          /* ---------------------------------------------------- */
+
+          if (!fieldDef.schemaClass && !fieldDef.variantClasses) {
+            const pick = (val: unknown): LogicalConstraint<any> | undefined => {
+              const t = typeof val;
+              if (t === "object") {
+                // date validator not yet built-in
+                if (Array.isArray(val)) return DEFAULT_VALIDATORS.array;
+                return DEFAULT_VALIDATORS.object;
+              }
+              return (
+                DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
+              )[t];
+            };
+
+            // Determine based on *runtime value* or default sentinel "undefined".
+            const validator = pick(value);
+            return validator;
+          }
+
+          return undefined;
         })(),
 
         // Preserve the original default (value or callable) verbatim
@@ -538,23 +626,28 @@ export class Schema<F extends Fields> implements SchemaInstance {
     this._fields = fields;
   }
 
-  static from<F extends Record<string, FieldType<any>>>(schema: F) {
+  static from<F extends Record<string, FieldType<any>>>(
+    schema: F,
+    opts?: { registry?: Registry },
+  ) {
+    const registry = opts?.registry ?? defaultRegistry;
+
     class ModelWithSchema extends Schema<F> {
       static _schema = schema;
+      static __registry = registry;
     }
+
+    type StaticHelpers = {
+      /** See {@link Schema.tryNew} */
+      tryNew(
+        input: ValueMap<F>,
+      ): Result<Schema<F> & ValueMap<F>, ErrLog<ValueMap<F>>>;
+    } & Pick<typeof Schema, "nestedArray" | "nestedVariant">;
 
     return ModelWithSchema as {
       new (input: InputValueMap<F>): Schema<F> & ValueMap<F>;
       _schema: F;
-      /**
-       * Build a validated instance. Returns a `Result` where `val` is the
-       * successfully-constructed model (when validation passes) and `errs`
-       * is a populated `ErrLog` (when validation fails).
-       */
-      tryNew(
-        input: ValueMap<F>,
-      ): Result<Schema<F> & ValueMap<F>, ErrLog<ValueMap<F>>>;
-    };
+    } & StaticHelpers;
   }
 
   /**
@@ -715,5 +808,40 @@ export class Schema<F extends Fields> implements SchemaInstance {
       (json as Record<string, unknown>)[key] = serialise(raw);
     }
     return json;
+  }
+
+  /* ---------------------------------------------------------- */
+  /* Registry helpers                                           */
+  /* ---------------------------------------------------------- */
+
+  /**
+   * Register the calling Schema class as the element type of an **array**
+   * field on a parent Schema.  Currently this helper is an identity function
+   * that returns the constructor so it can be used inline as a value argument
+   * to {@link Of}.  A future release may attach richer runtime metadata.
+   */
+  static nestedArray<Parent extends SchemaClass>(
+    this: SchemaClass,
+
+    _parentFn: () => Parent,
+    _opts?: { registry?: Registry },
+  ): typeof this {
+    void _parentFn;
+    void _opts;
+    return this;
+  }
+
+  /**
+   * Register the calling Schema class as a **variant** constructor on a parent
+   * Schema.  Identity function for now – behaviour mirrors {@link nestedArray}.
+   */
+  static nestedVariant<Parent extends SchemaClass>(
+    this: SchemaClass,
+    _parentFn: () => Parent,
+    _opts?: { registry?: Registry },
+  ): typeof this {
+    void _parentFn;
+    void _opts;
+    return this;
   }
 }

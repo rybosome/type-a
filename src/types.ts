@@ -16,6 +16,7 @@ type ScalarTypeable =
   | string
   | number
   | boolean
+  | bigint
   | null
   | undefined
   | SchemaInstance;
@@ -99,7 +100,7 @@ export type ErrLog<T> = {
 export type Maybe<T> = Result<T, ErrLog<T>>;
 
 /* ------------------------------------------------------------------ */
-/* DiscriminatedUnion                                                  */
+/* Variant                                                             */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -120,6 +121,27 @@ export type Maybe<T> = Result<T, ErrLog<T>>;
  * handled by the {@link Schema} logic once the corresponding `schemaClasses`
  * array is supplied to `Of()`.
  */
-export type DiscriminatedUnion<
+
+export type Variant<
   Classes extends readonly { new (input: any): SchemaInstance }[],
 > = OutputOf<Classes[number]>;
+
+/**
+ * Deprecated alias kept for smoother migration. Instantiating the runtime
+ * value throws immediately with a descriptive error so that code relying on
+ * the *value* (rather than the type) fails loudly.
+ */
+
+export const DiscriminatedUnion = new Proxy(() => {}, {
+  apply() {
+    throw new Error(
+      "`DiscriminatedUnion` has been renamed to `Variant`. Update your imports and generics accordingly.",
+    );
+  },
+}) as never;
+
+// Keep type alias for compile-time back-compatibility
+
+export type DiscriminatedUnion<
+  C extends readonly { new (input: any): SchemaInstance }[],
+> = Variant<C>;
