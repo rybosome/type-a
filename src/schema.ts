@@ -1,118 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   ErrLog,
-  InputOf,
   LogicalConstraint,
-  OutputOf,
   Result,
   Typeable,
   SchemaInstance,
+  ValueMap,
+  FieldWithDefault,
+  FieldWithoutDefault,
+  FieldType,
+  SchemaClass,
+  InputValueMap,
+  Fields,
 } from "@src/types";
 
-import { RELATIONSHIP, RelationshipDescriptor } from "@src/types";
+import { RelationshipDescriptor } from "@src/types";
 
 import type { Registry } from "@src/registry";
 import { defaultRegistry } from "@src/registry";
-
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-/**
- * Run-time shape of a Schema class (produced by {@link Schema.from}).
- */
-export type SchemaClass = {
-  new (input: any): SchemaInstance;
-  _schema: Fields;
-  // Registry captured at declaration time (internal)
-  __registry?: Registry;
-};
-
-export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
-
-// --------------------
-// FieldType
-// --------------------
-
-/**
- * A field description used by Schema.
- */
-/**
- * Describes a Schema property at both compile-time (for type inference/validation)
- * and runtime (for parsing/validation/serialization).
- *
- * @typeParam T   The *in-memory* typed representation used by callers once the
- *                value has been parsed/deserialised.
- * @typeParam R   The *raw* external representation accepted by the constructor
- *                **and** produced by the optional `serializer`.  When no
- *                custom serialisation is supplied `R` defaults to `T` so
- *                existing call-sites continue to compile unchanged.
- */
-export interface FieldType<T extends Typeable, R = T> {
-  /**
-   * Compile-time marker that preserves the **exact** generic parameter `T`
-   * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
-   *
-   * This is a phantom property: it exists only at the type level and is never
-   * assigned or accessed at runtime.
-   *
-   * Although **required** in the type, every real object is produced via a
-   * type-assertion (`as FieldType<T>`) so no property is emitted.
-   */
-  readonly __t: T;
-
-  /**
-   * The underlying value contained in the field.  In addition to primitive
-   * scalars and flat arrays, **tuple** values (both fixed-length and variadic
-   * rest-pattern forms) are fully supported via the extended {@link Typeable}
-   * definition.
-   */
-  value: T | undefined;
-
-  /**
-   * Optional default value applied when the caller omits the field or passes
-   * `undefined`. The default may be the value itself **or** a zero-arg function
-   * returning the value (useful for non-primitive or non-constant defaults).
-   */
-  default?: T | (() => T);
-
-  /**
-   * Optional validator(s). When an array is provided, every constraint is run
-   * in order until the first failure (the returned string) or until all pass
-   * (returns `true`).
-   */
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-
-  /**
-   * Optional nested Schema class (singular). When present this field is
-   * automatically instantiated, validated and serialised recursively.
-   */
-  schemaClass?: SchemaClass;
-
-  /**
-   * Optional *set* of Schema classes used for explicit variant unions. When
-   * provided the runtime picks the correct constructor from this list based on
-   * the incoming raw object's discriminator value (see {@link variantKey}) and
-   * instantiates it.  Mutually exclusive with {@link FieldType.schemaClass}.
-   */
-  variantClasses?: SchemaClass[];
-
-  /**
-   * Optional custom serialisation/deserialisation tuple applied to the raw
-   * value during `Schema` construction and when calling `toJSON()`.  The first
-   * element is the **deserialiser** (raw -> in-memory), the second is the
-   * **serialiser** (in-memory -> raw).
-   */
-  serdes?: [(raw: R) => T, (val: T) => R];
-
-  /**
-   * Relationship descriptor produced by {@link Schema.hasOne} /
-   * {@link Schema.hasMany}.  Included primarily for registry bookkeeping – the
-   * core runtime logic uses {@link schemaClass} and the field's generic type
-   * (array vs scalar) for instantiation.
-   */
-  relation?: RelationshipDescriptor<any>;
-}
 
 /* ------------------------------------------------------------------ */
 /* Default primitive validators                                        */
@@ -141,36 +46,6 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
 /* ------------------------------------------------------------------ */
 
 /**
- * Helper aliases used by the `Of<T>` overloads below.  They enforce whether
- * the caller supplied a `default` as well as whether a `[serializer,
- * deserializer]` tuple is present.
- */
-type FieldWithDefault<T extends Typeable, R = T> = FieldType<T, R> & {
-  default: T | (() => T);
-};
-
-/**
- * Field descriptor *without* a default.
- */
-type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
-  FieldType<T, R>,
-  "default"
->;
-
-// --------------------
-// Overload A — Variant union (variantClasses)
-// --------------------
-
-// Variant overload accepting a list of variant constructors
-export function Of<DU extends Typeable>(opts: {
-  variantClasses: SchemaClass[];
-  default?: DU | (() => DU);
-  is?:
-    | LogicalConstraint<NonNullable<DU>>
-    | LogicalConstraint<NonNullable<DU>>[];
-}): FieldType<DU> & { variantClasses: SchemaClass[] };
-
-/**
  * Create a field descriptor.
  */
 
@@ -196,39 +71,7 @@ export function Of<T extends Typeable, R = T>(opts: {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 }): FieldType<T, R> & { serdes: [(val: T) => R, (raw: R) => T] };
 
-// Relationship descriptor – hasOne (single)
-export function Of<S extends SchemaClass>(
-  rel: RelationshipDescriptor<S, "one">,
-  opts?: {
-    default?: OutputOf<S> | (() => OutputOf<S>);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
-  },
-): FieldType<OutputOf<S>> & {
-  schemaClass: S;
-  relation: RelationshipDescriptor<S, "one">;
-};
-
-// Relationship descriptor – hasMany (array)
-export function Of<S extends SchemaClass>(
-  rel: RelationshipDescriptor<S, "many">,
-  opts?: {
-    default?: OutputOf<S>[] | (() => OutputOf<S>[]);
-    is?:
-      | LogicalConstraint<NonNullable<OutputOf<S>>>
-      | LogicalConstraint<NonNullable<OutputOf<S>>>[];
-  },
-): FieldType<OutputOf<S>[]> & {
-  schemaClass: S;
-  relation: RelationshipDescriptor<S, "many">;
-};
-
 export function Of(...args: any[]): any {
-  /* -------------------------------------------------------------- */
-  /* Detect argument pattern                                        */
-  /* -------------------------------------------------------------- */
-
   // Helpers -------------------------------------------------------
   const makeField = <T extends Typeable>(
     extra: Partial<FieldType<T>>,
@@ -257,32 +100,6 @@ export function Of(...args: any[]): any {
     }
     return base;
   };
-
-  // ------------------------------------------------------------------
-  // Case A – args[0] is a RelationshipDescriptor (hasOne / hasMany)
-  // ------------------------------------------------------------------
-
-  if (
-    args.length > 0 &&
-    typeof args[0] === "object" &&
-    args[0] !== null &&
-    (args[0] as any)[RELATIONSHIP] === true
-  ) {
-    const rel = args[0] as RelationshipDescriptor<SchemaClass>;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    return makeField(
-      {
-        schemaClass: rel.schemaClass,
-        relation: rel,
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case B – primitive / non-schema field definitions
-  // ------------------------------------------------------------------
 
   // Variant union support: opts object with `variantClasses` key.
   if (
@@ -338,86 +155,6 @@ export function Of(...args: any[]): any {
 
   return base;
 }
-
-// --------------------
-// Schema and Model Types
-// --------------------
-
-type Fields = Record<string, FieldType<any>>;
-
-type ValueType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V // Preserve generic param (handles arrays automatically)
-      : OutputOf<S>
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
-      ? F extends FieldType<infer V>
-        ? V extends any[]
-          ? OutputOf<Arr[number]>[]
-          : OutputOf<Arr[number]>
-        : OutputOf<Arr[number]>
-      : never
-    : F extends FieldType<infer V>
-      ? V
-      : never;
-
-type ValueMap<F extends Fields> = { [K in keyof F]: ValueType<F[K]> };
-
-/**
- * Keys that are optional in the constructor's input object.
- *
- * A key is optional when the field descriptor provides a `default`, or the declared
- * value type already allows `undefined`.
- */
-type OptionalKeys<F extends Fields> = {
-  [K in keyof F]: F[K] extends { default: any }
-    ? K
-    : undefined extends ValueMap<F>[K]
-      ? K
-      : never;
-}[keyof F];
-
-/**
- * Keys that must be provided in the constructor's input object.
- */
-type RequiredKeys<F extends Fields> = {
-  [K in keyof F]: F[K] extends { default: any }
-    ? never
-    : undefined extends ValueMap<F>[K]
-      ? never
-      : K;
-}[keyof F];
-
-/**
- * Constructor input map:
- *  • Keys in `RequiredKeys` are mandatory.
- *  • Keys in `OptionalKeys` may be omitted.
- */
-type InputType<F> = F extends { schemaClass: infer S }
-  ? S extends SchemaClass
-    ? F extends FieldType<infer V>
-      ? V extends any[]
-        ? InputOf<S>[]
-        : InputOf<S>
-      : never
-    : never
-  : F extends { variantClasses: infer Arr }
-    ? Arr extends SchemaClass[]
-      ? F extends FieldType<infer V>
-        ? V extends any[]
-          ? InputOf<Arr[number]>[]
-          : InputOf<Arr[number]>
-        : InputOf<Arr[number]>
-      : never
-    : ValueType<F>;
-
-type InputValueMap<F extends Fields> = {
-  [K in RequiredKeys<F>]: InputType<F[K]>;
-} & {
-  [K in OptionalKeys<F>]?: InputType<F[K]>;
-};
 
 // --------------------
 // Schema
@@ -874,48 +611,5 @@ export class Schema<F extends Fields> implements SchemaInstance {
       (json as Record<string, unknown>)[key] = serialise(rendered);
     }
     return json;
-  }
-
-  /* ---------------------------------------------------------- */
-  /* Relationship helpers                                       */
-  /* ---------------------------------------------------------- */
-
-  /**
-   * Declare a *single* child relationship (has-one) to the supplied schema
-   * class.  Intended for inline use inside {@link Of} field definitions, e.g.:
-   *
-   * ```ts
-   * class LoginAttempt extends Schema.from({ … }) {}
-   * class LoginRecord extends Schema.from({
-   *   loginAttempt: Of(LoginRecord.hasOne(LoginAttempt)),
-   * }) {}
-   * ```
-   *
-   * At runtime this method creates **and returns** a lightweight marker object
-   * consumed by the `Of()` factory.  The descriptor is purely declarative – it
-   * carries *metadata only* and does not influence control-flow on its own.
-   */
-  static hasOne<Child extends SchemaClass>(
-    child: Child,
-  ): RelationshipDescriptor<Child, "one"> {
-    return {
-      [RELATIONSHIP]: true,
-      schemaClass: child,
-      cardinality: "one",
-    } as RelationshipDescriptor<Child, "one">;
-  }
-
-  /**
-   * Declare a *multi* child relationship (has-many) to the supplied schema
-   * class.  See {@link hasOne} for usage details.
-   */
-  static hasMany<Child extends SchemaClass>(
-    child: Child,
-  ): RelationshipDescriptor<Child, "many"> {
-    return {
-      [RELATIONSHIP]: true,
-      schemaClass: child,
-      cardinality: "many",
-    } as RelationshipDescriptor<Child, "many">;
   }
 }
