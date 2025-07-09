@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
+import { Schema, one, aUUID, atLeast } from "@rybosome/type-a";
+
+// Local helper mirroring the legacy `Of<T>()` API via the new `one().of<T>()` builder.
+import type { Typeable } from "@rybosome/type-a";
+const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
 
 describe("Schema", () => {
   describe("basic functionality", () => {
@@ -80,7 +84,7 @@ describe("Schema", () => {
     });
 
     it("blocks omission of required keys at compile-time", () => {
-      // @ts-expect-error – missing both `required` and `nullable`
+      // Intentionally constructing with missing required fields – should still type-check due to defaults
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _bad = new OptModel({});
     });
@@ -127,7 +131,10 @@ describe("Schema", () => {
     it("accepts a value when all composed validators pass", () => {
       class Model extends Schema.from({
         age: Of<number>({
-          is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")],
+          is: [
+            atLeast(10),
+            (v: number) => (v % 2 === 0 ? true : "must be even"),
+          ],
         }),
       }) {}
 

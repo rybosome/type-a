@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, one, nonEmpty, atLeast } from "@rybosome/type-a";
+
+import type { Typeable } from "@rybosome/type-a";
+const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
 
 // Create a minimal schema with two distinct fields
 const User = Schema.from({

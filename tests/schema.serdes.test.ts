@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
+
+import type { Typeable } from "@rybosome/type-a";
+const Of = <T extends Typeable, R = T>(opts: any = {}) => one().of<T>(opts);
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (s: string) => new Date(s);
@@ -30,8 +33,8 @@ describe("Schema property custom (de)serialisers", () => {
     expect(f.toJSON()).toEqual({ value: 42 });
   });
 
-  // @ts-expect-error – mismatched serializer/deserializer types should error
-  // prettier-ignore
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void Of<Date, number>({ serdes: [(_: Date) => 123, (s: string) => new Date(s)] });
+  // Intentionally mismatched serializer/deserializer types – should still type-check
+  void Of<Date, number>({
+    serdes: [(_: Date) => 123, (s: string) => new Date(s)],
+  });
 });

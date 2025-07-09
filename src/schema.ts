@@ -6,8 +6,6 @@ import type {
   Typeable,
   SchemaInstance,
   ValueMap,
-  FieldWithDefault,
-  FieldWithoutDefault,
   FieldType,
   SchemaClass,
   InputValueMap,
@@ -41,123 +39,8 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
     "expected plain object",
 };
 
-/* ------------------------------------------------------------------ */
-/* Of                                                                 */
-/* ------------------------------------------------------------------ */
-
-/**
- * Create a field descriptor.
- */
-
-// ──────────────────────────────────────────────────────────────────────────
-// Overload signatures
-// ──────────────────────────────────────────────────────────────────────────
-
-// 1. Primitive field **without** default/serdes
-export function Of<T extends Typeable>(opts?: {
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldWithoutDefault<T>;
-
-// 2. Primitive field **with default** (no serdes)
-export function Of<T extends Typeable>(opts: {
-  default: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldWithDefault<T>;
-
-// 3. Primitive field **with custom serdes** (optional default)
-export function Of<T extends Typeable, R = T>(opts: {
-  serdes: [(val: T) => R, (raw: R) => T] | [(raw: R) => T, (val: T) => R];
-  default?: T | (() => T);
-  is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
-}): FieldType<T, R> & { serdes: [(val: T) => R, (raw: R) => T] };
-
-export function Of(...args: any[]): any {
-  // Helpers -------------------------------------------------------
-  const makeField = <T extends Typeable>(
-    extra: Partial<FieldType<T>>,
-    opts:
-      | {
-          default?: T | (() => T);
-          is?:
-            | LogicalConstraint<NonNullable<T>>
-            | LogicalConstraint<NonNullable<T>>[];
-        }
-      | undefined,
-  ): FieldType<T> => {
-    const base: FieldType<T> = {
-      // phantom compile-time marker
-      __t: undefined as unknown as T,
-      value: undefined as unknown as T,
-      ...extra,
-    } as FieldType<T>;
-
-    if (opts?.is) (base as any).is = opts.is;
-    if (opts && "default" in opts && opts.default !== undefined) {
-      (base as any).default = opts.default;
-    }
-    if (opts && "serdes" in opts && (opts as any).serdes !== undefined) {
-      (base as any).serdes = (opts as any).serdes;
-    }
-    return base;
-  };
-
-  // Variant union support: opts object with `variantClasses` key.
-  if (
-    args.length === 1 &&
-    args[0] &&
-    typeof args[0] === "object" &&
-    !Array.isArray(args[0]) &&
-    Array.isArray((args[0] as any).variantClasses)
-  ) {
-    const optsObj = args[0] as {
-      variantClasses: SchemaClass[];
-      default?: Typeable | (() => Typeable);
-      is?: LogicalConstraint<Typeable> | LogicalConstraint<Typeable>[];
-    };
-
-    const { variantClasses, ...rest } = optsObj;
-
-    // Validate variantClasses shape at runtime for helpful errors.
-    if (
-      variantClasses.length === 0 ||
-      !variantClasses.every((c) => typeof c === "function" && "_schema" in c)
-    ) {
-      throw new Error(
-        "Of(): `variantClasses` must be an array of Schema classes with static _schema",
-      );
-    }
-
-    return makeField(
-      {
-        variantClasses,
-      },
-      rest as Parameters<typeof makeField>[1],
-    );
-  }
-
-  const opts = (args[0] ?? undefined) as {
-    default?: Typeable | (() => Typeable);
-    is?: ((val: any) => boolean | string) | ((val: any) => boolean | string)[];
-  };
-
-  const base: FieldType<any> = {
-    __t: undefined,
-    value: undefined,
-  } as FieldType<any>;
-
-  if (opts?.is) (base as any).is = opts.is;
-  if (opts && "default" in opts && opts.default !== undefined) {
-    (base as any).default = opts.default;
-  }
-  if (opts && "serdes" in opts && (opts as any).serdes !== undefined) {
-    (base as any).serdes = (opts as any).serdes;
-  }
-
-  return base;
-}
-
-// --------------------
-// Schema
+// ------------------------------------------------------------------
+// Schema (implementation continues below)
 // --------------------
 
 /**

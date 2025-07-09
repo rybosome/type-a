@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
+
+import type { Typeable } from "@rybosome/type-a";
+const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
 
 class Response extends Schema.from({
   // status may be the literal string "ok" or any numeric HTTP status code
