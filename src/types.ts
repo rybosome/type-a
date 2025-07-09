@@ -4,10 +4,23 @@
  * *actual* schema objects from arbitrary runtime objects while still allowing
  * nested-schema support.
  */
-export interface SchemaInstance {
-  // Branded discriminator – never assigned by consumers.
+import type { nested } from "@src/nested";
+
+/**
+* Concrete runtime instance brand implemented by every class produced via
+* `Schema.from(… )`.  Kept separate so that user-defined validators and helper
+* generics can still refer to the *union* {@link SchemaInstance} which also
+* includes the compile-time `nested<S>` wrapper.
+*/
+export interface _ConcreteSchemaInstance {
   readonly __isSchemaInstance: true;
 }
+
+/**
+* Any **real** schema instance *or* a `nested<S>` placeholder used when
+* declaring nested fields.
+*/
+export type SchemaInstance = _ConcreteSchemaInstance | nested<any>;
 
 /**
  * The subset of values that may appear in a scalar schema field.

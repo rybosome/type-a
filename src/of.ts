@@ -16,15 +16,31 @@ import type { FieldType } from "@src/schema";
 
 /** If `T` is `nested<S>` unwrap to the *constructed* schema value, otherwise
  * leave untouched. */
-type UnwrapNested<T> =
-  T extends nested<infer S> ? InstanceType<_NestedSchemaOf<T>> : T;
+// ---------------------------------------------------------------------------
+// `nested<S>` unwrapping helpers                                            
+// ---------------------------------------------------------------------------
 
-/** Derive the *final* value type stored in the field based on its cardinality
- * and (possibly nested) element type. */
+/** Unwrap a single `nested<S>` wrapper to its **instance** type. */
+type _UnwrapNestedSingle<T> = T extends nested<infer S>
+  ? InstanceType<_NestedSchemaOf<T>>
+  : T;
+
+/**
+* Unwrap `nested<S>` that may be wrapped in a *single* array layer. If `T` is
+* itself an array we unwrap the **element** type only – the caller is
+* responsible for adding an outer array when the field cardinality is
+* `many`.
+*/
+type _UnwrapNestedMaybeArray<T> = T extends (infer U)[]
+  ? _UnwrapNestedSingle<U>
+  : _UnwrapNestedSingle<T>;
+
+/** Derive the final in-memory value for the field based on cardinality and
+* (possibly nested) element type. */
 type FieldValue<C extends Cardinality, T> = C extends typeof one
-  ? UnwrapNested<T>
+  ? _UnwrapNestedSingle<T>
   : C extends typeof many
-    ? UnwrapNested<T>[]
+    ? _UnwrapNestedMaybeArray<T>[]
     : never;
 
 /**
@@ -32,15 +48,25 @@ type FieldValue<C extends Cardinality, T> = C extends typeof one
  * 1-to-1 to {@link FieldType}.  Nested schemas are now declared exclusively via
  * the {@link with} helper – therefore **no** constructor is accepted here.
  */
-export interface FieldOpts<C extends Cardinality, T> {
+export interface FieldOpts<C extends Cardinality, T, R = FieldValue<C, T>> {
   default?: FieldValue<C, T> | (() => FieldValue<C, T>);
+  /**
+   * Validation predicate(s) applied to the *element* type of the field. When
+   * the cardinality is `many` the runtime iterates over the array and applies
+   * the constraint to each value individually.  For `one` the predicate is
+   * executed directly on the scalar value.
+   */
   is?:
-    | LogicalConstraint<NonNullable<FieldValue<C, T>>>
-    | LogicalConstraint<NonNullable<FieldValue<C, T>>>[];
-  serdes?: [
-    (val: FieldValue<C, T>) => unknown,
-    (raw: unknown) => FieldValue<C, T>,
-  ];
+    | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>
+    | LogicalConstraint<NonNullable<_UnwrapNestedMaybeArray<T>>>[];
+  /**
+   * Custom serializer/​deserializer tuple. When provided the **first** element
+   * converts the in-memory value to the raw representation (`val → raw`) while
+   * the second performs the inverse transformation (`raw → val`).
+   */
+  serdes?: [(val: FieldValue<C, T>) => R, (raw: R) => FieldValue<C, T>];
+
+  /** Variant-union support – same semantics as legacy API. */
   variantClasses?: SchemaClass[];
 }
 
@@ -59,19 +85,23 @@ export interface FieldOpts<C extends Cardinality, T> {
  * });
  * ```
  */
-export function Of<C extends Cardinality, T extends Typeable>(
-  opts: FieldOpts<C, T>,
-): FieldType<FieldValue<C, T>> {
+export function Of<C extends Cardinality, T extends Typeable, R = FieldValue<C, T>>( // R = raw repr
+  opts: FieldOpts<C, T, R> | [],
+): FieldType<FieldValue<C, T>> & (R extends FieldValue<C, T> ? {} : { serdes: [(val: FieldValue<C, T>) => R, (raw: R) => FieldValue<C, T>] }) {
+  // Normalize `opts` – allow callers to pass the ergonomic `[]` sentinel which
+  // we treat exactly the same as an empty options object.
+  const normalizedOpts = (Array.isArray(opts) ? {} : opts) as FieldOpts<C, T, R>;
+
   // Assemble the descriptor skeleton. `__t` and `value` are *phantom*
   // properties used solely for type inference – they carry no runtime data.
-  const field: FieldType<FieldValue<C, T>> = {
+  const field: FieldType<FieldValue<C, T>> & Partial<FieldOpts<C, T, R>> = {
     __t: undefined as unknown as FieldValue<C, T>,
     value: undefined as unknown as FieldValue<C, T>,
-  } as FieldType<FieldValue<C, T>>;
+  } as any;
 
   // Copy recognised options directly – lossy cast is safe because the helper
   // type guarantees compatibility.
-  Object.assign(field as any, opts);
+  Object.assign(field as any, normalizedOpts);
 
-  return field;
+  return field as any;
 }

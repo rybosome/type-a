@@ -15,12 +15,17 @@ import type { Typeable } from "@src/types";
 /* -------------------------------------------------------------------------- */
 
 // We re-declare the internal helpers from `of.ts` to avoid a circular import.
-type UnwrapNested<T> = T extends nested<infer S> ? InstanceType<S> : T;
+// Match the advanced unwrapping rules from `of.ts` ---------------------------
+type _UnwrapNestedSingle<T> = T extends nested<infer S> ? InstanceType<S> : T;
+
+type _UnwrapNestedMaybeArray<T> = T extends (infer U)[]
+  ? _UnwrapNestedSingle<U>
+  : _UnwrapNestedSingle<T>;
 
 type FieldValue<C extends Cardinality, T> = C extends typeof one
-  ? UnwrapNested<T>
+  ? _UnwrapNestedSingle<T>
   : C extends typeof many
-    ? UnwrapNested<T>[]
+    ? _UnwrapNestedMaybeArray<T>[]
     : never;
 
 /* -------------------------------------------------------------------------- */
@@ -32,11 +37,11 @@ export function has<S extends SchemaClass>(schemaClass: S) {
   // of that method using an explicit cast so that callers see the conditional
   // constraint linking `T` to `nested<S>`.
 
-  function OfWithinHas<C extends Cardinality, T extends Typeable>(
-    opts: FieldOpts<C, T>,
+  function OfWithinHas<C extends Cardinality, T extends Typeable, R = FieldValue<C, T>>( // raw R defaults
+    opts: FieldOpts<C, T, R>,
   ): any {
     // Delegate the heavy lifting to the generic-only `Of` builder.
-    const field = Of<C, T>(opts) as FieldType<FieldValue<C, T>> & {
+    const field = Of<C, T, R>(opts) as unknown as FieldType<FieldValue<C, T>> & {
       schemaClass: S;
       cardinality: C;
     };
@@ -56,19 +61,17 @@ export function has<S extends SchemaClass>(schemaClass: S) {
     // Cast with conditional to *statically* enforce that the caller’s `T`
     // matches `nested<S>` (optionally an array and/or undefined).
     Of: OfWithinHas as {
-      <C extends Cardinality, T>(
-        opts: FieldOpts<C, T>,
-      ): T extends nested<S>[] | nested<S> | undefined
-        ? FieldType<FieldValue<C, T>> & { schemaClass: S; cardinality: C }
-        : never;
+      <C extends Cardinality, T, R = FieldValue<C, T>>(opts: FieldOpts<C, T, R>):
+        T extends nested<S>[] | nested<S> | undefined
+          ? FieldType<FieldValue<C, T>> & { schemaClass: S; cardinality: C }
+          : never;
     },
   } as {
     Of: {
-      <C extends Cardinality, T>(
-        opts: FieldOpts<C, T>,
-      ): T extends nested<S>[] | nested<S> | undefined
-        ? FieldType<FieldValue<C, T>> & { schemaClass: S; cardinality: C }
-        : never;
+      <C extends Cardinality, T, R = FieldValue<C, T>>(opts: FieldOpts<C, T, R>):
+        T extends nested<S>[] | nested<S> | undefined
+          ? FieldType<FieldValue<C, T>> & { schemaClass: S; cardinality: C }
+          : never;
     };
   };
 }

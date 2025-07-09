@@ -6,6 +6,7 @@ import type {
   OutputOf,
   Result,
   Typeable,
+  _ConcreteSchemaInstance,
   SchemaInstance,
 } from "@src/types";
 
@@ -21,11 +22,9 @@ import { defaultRegistry } from "@src/registry";
 /**
  * Run-time shape of a Schema class (produced by {@link Schema.from}).
  */
-export type SchemaClass = {
-  new (input: any): SchemaInstance;
-  _schema: Fields;
-  // Registry captured at declaration time (internal)
-  //__registry?: Registry;
+export type SchemaClass = (new (...args: any[]) => any) & {
+  /** Optional compile-time schema descriptor populated by `Schema.from()`. */
+  _schema?: Fields;
 };
 
 export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
@@ -464,7 +463,7 @@ function composeConstraints<T extends Typeable>(
 /**
  * A dataclass-style object with parsing, validation and rendering.
  */
-export class Schema<F extends Fields> implements SchemaInstance {
+export class Schema<F extends Fields> implements _ConcreteSchemaInstance {
   readonly __isSchemaInstance = true as const;
   private readonly _fields: {
     [K in keyof F]: FieldType<ValueMap<F>[K]>;
