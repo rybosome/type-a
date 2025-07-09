@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, Of, one, many, nested, nonEmpty, atLeast } from "@rybosome/type-a";
 
 /**
  * Tests for arbitrarily-nested schema support.
@@ -8,16 +8,16 @@ import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
 
 describe("Schema nesting", () => {
   class Address extends Schema.from({
-    firstLine: Of<string>({ is: nonEmpty }),
-    secondLine: Of<string | undefined>(),
-    city: Of<string>({ is: nonEmpty }),
-    state: Of<string>({ is: nonEmpty }),
-    zip: Of<number>({ is: atLeast(10000) }),
+    firstLine: Of<one, string>({ is: nonEmpty }),
+    secondLine: Of<one, string | undefined>({}),
+    city: Of<one, string>({ is: nonEmpty }),
+    state: Of<one, string>({ is: nonEmpty }),
+    zip: Of<one, number>({ is: atLeast(10000) }),
   }) {}
 
   class User extends Schema.from({
-    name: Of<string>({ is: nonEmpty }),
-    address: Of(Schema.hasOne(Address)),
+    name: Of<one, string>({ is: nonEmpty }),
+    address: Of<one, nested<Address>>({ schemaClass: Address }),
   }) {}
 
   it("instantiates with nested object and exposes nested fields", () => {
@@ -70,13 +70,13 @@ describe("Schema nesting", () => {
 
   it("supports deeply-nested structures", () => {
     class Company extends Schema.from({
-      name: Of<string>({ is: nonEmpty }),
-      hq: Of(Schema.hasOne(Address)),
+      name: Of<one, string>({ is: nonEmpty }),
+      hq: Of<one, nested<Address>>({ schemaClass: Address }),
     }) {}
 
     class Account extends Schema.from({
-      owner: Of(Schema.hasOne(User)),
-      employer: Of(Schema.hasOne(Company)),
+      owner: Of<one, nested<User>>({ schemaClass: User }),
+      employer: Of<one, nested<Company>>({ schemaClass: Company }),
     }) {}
 
     const acct = new Account({
@@ -107,11 +107,11 @@ describe("Schema nesting", () => {
 
   it("supports type-composition", () => {
     class Company extends Schema.from({
-      name: Of<string>({ is: nonEmpty }),
+      name: Of<one, string>({ is: nonEmpty }),
     }) {}
 
     class WorkHistory extends Schema.from({
-      employers: Of(Schema.hasMany(Company)),
+      employers: Of<many, nested<Company>>({ schemaClass: Company }),
     }) {}
 
     new WorkHistory({

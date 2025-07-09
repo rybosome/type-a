@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, Variant } from "@rybosome/type-a";
+import { Schema, Of, Variant, one } from "@rybosome/type-a";
 
 class A extends Schema.from({
-  kind: Of<"A">(), // keep literal helper via generic – still ok
-  a: Of.string(),
+  kind: Of<one, "A">({}),
+  a: Of<one, string>({}),
 }) {}
 
 class B extends Schema.from({
-  kind: Of<"B">(),
-  b: Of.number(),
+  kind: Of<one, "B">({}),
+  b: Of<one, number>({}),
 }) {}
 
 class Wrapper extends Schema.from({
-  value: Of<Variant<[typeof A, typeof B]>>({
+  value: Of<one, Variant<[typeof A, typeof B]>>({
     variantClasses: [A, B],
   }),
 }) {}

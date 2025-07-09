@@ -1,28 +1,28 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, one, many, nested } from "@rybosome/type-a";
 
 class LoginAttempt extends Schema.from({
-  success: Of.boolean(),
-  unixTimestampMs: Of.number(),
+  success: Of<one, boolean>({}),
+  unixTimestampMs: Of<one, number>({}),
 }) {}
 
 class LoginRecord extends Schema.from({
-  loginAttempt: Of(Schema.hasOne(LoginAttempt)),
+  loginAttempt: Of<one, nested<LoginAttempt>>({ schemaClass: LoginAttempt }),
 }) {}
 
 class User extends Schema.from({
-  loginAttempts: Of(Schema.hasMany(LoginAttempt)),
+  loginAttempts: Of<many, nested<LoginAttempt>>({ schemaClass: LoginAttempt }),
 }) {}
 
-class Comment extends Schema.from({ msg: Of<string>() }) {}
+class Comment extends Schema.from({ msg: Of<one, string>({}) }) {}
 
 class Post extends Schema.from({
-  comments: Of(Schema.hasMany(Comment)),
+  comments: Of<many, nested<Comment>>({ schemaClass: Comment }),
 }) {}
 
 class Blog extends Schema.from({
-  posts: Of(Schema.hasMany(Post)),
+  posts: Of<many, nested<Post>>({ schemaClass: Post }),
 }) {}
 
 describe("Schema – parent-driven hasOne/hasMany", () => {
