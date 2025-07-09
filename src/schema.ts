@@ -9,7 +9,7 @@ import type {
   SchemaInstance,
 } from "@src/types";
 
-import { RELATIONSHIP, RelationshipDescriptor } from "@src/types";
+import { RelationshipDescriptor } from "@src/types";
 
 import type { Registry } from "@src/registry";
 import { defaultRegistry } from "@src/registry";
@@ -25,7 +25,7 @@ export type SchemaClass = {
   new (input: any): SchemaInstance;
   _schema: Fields;
   // Registry captured at declaration time (internal)
-  __registry?: Registry;
+  //__registry?: Registry;
 };
 
 export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
@@ -190,19 +190,6 @@ type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
   "default"
 >;
 
-// --------------------
-// Overload A — Variant union (variantClasses)
-// --------------------
-
-// Variant overload accepting a list of variant constructors
-export function Of<DU extends Typeable>(opts: {
-  variantClasses: SchemaClass[];
-  default?: DU | (() => DU);
-  is?:
-    | LogicalConstraint<NonNullable<DU>>
-    | LogicalConstraint<NonNullable<DU>>[];
-}): FieldType<DU> & { variantClasses: SchemaClass[] };
-
 /**
  * Create a field descriptor.
  */
@@ -319,75 +306,6 @@ export function Of(...args: any[]): any {
     return base;
   };
 
-  // ------------------------------------------------------------------
-  // Case A – args[0] is a SchemaClass constructor (single instance)
-  // ------------------------------------------------------------------
-  if (
-    args.length > 0 &&
-    typeof args[0] === "function" &&
-    "_schema" in args[0]
-  ) {
-    const schemaClass = args[0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    return makeField(
-      {
-        schemaClass,
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case B – args[0] is an **array** containing a single SchemaClass
-  //          constructor (array of instances)
-  // ------------------------------------------------------------------
-  if (
-    args.length > 0 &&
-    Array.isArray(args[0]) &&
-    args[0].length === 1 &&
-    typeof args[0][0] === "function" &&
-    "_schema" in args[0][0]
-  ) {
-    const schemaClass = args[0][0] as SchemaClass;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    // The generic `T` here becomes `OutputOf<typeof schemaClass>[]`
-    return makeField(
-      {
-        schemaClass,
-        // annotate value as array via generic parameter – nothing to set at runtime
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case C – args[0] is a RelationshipDescriptor (hasOne / hasMany)
-  // ------------------------------------------------------------------
-
-  if (
-    args.length > 0 &&
-    typeof args[0] === "object" &&
-    args[0] !== null &&
-    (args[0] as any)[RELATIONSHIP] === true
-  ) {
-    const rel = args[0] as RelationshipDescriptor<SchemaClass>;
-    const opts = (args[1] ?? undefined) as Parameters<typeof makeField>[1];
-
-    return makeField(
-      {
-        schemaClass: rel.schemaClass,
-        relation: rel,
-      },
-      opts,
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Case D – primitive / non-schema field definitions (legacy path)
-  // ------------------------------------------------------------------
-
   // Variant union support: opts object with `variantClasses` key.
   if (
     args.length === 1 &&
@@ -441,65 +359,6 @@ export function Of(...args: any[]): any {
   }
 
   return base;
-}
-
-// ------------------------------------------------------------------
-// Sugar helpers – strict primitive shortcuts
-// ------------------------------------------------------------------
-
-// Attach helper factories directly to the `Of` function object to avoid
-// introducing a `namespace` (incompatible with ESM).
-
-Object.assign(Of, {
-  boolean: (opts?: {
-    default?: boolean | (() => boolean);
-    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
-  }) =>
-    Of<boolean>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.boolean,
-    } as any),
-
-  number: (opts?: {
-    default?: number | (() => number);
-    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
-  }) =>
-    Of<number>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.number,
-    } as any),
-
-  string: (opts?: {
-    default?: string | (() => string);
-    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
-  }) =>
-    Of<string>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.string,
-    } as any),
-});
-
-// ------------------------------------------------------------------------------------------------
-// Static helper *types* – attach to the `Of` namespace so that callers get proper IntelliSense and
-// type-safety when using `Of.boolean()`, `Of.number()`, `Of.string()`.
-// ------------------------------------------------------------------------------------------------
-
-/* eslint-disable @typescript-eslint/no-namespace */
-export namespace Of {
-  export declare const boolean: (opts?: {
-    default?: boolean | (() => boolean);
-    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
-  }) => FieldType<boolean>;
-
-  export declare const number: (opts?: {
-    default?: number | (() => number);
-    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
-  }) => FieldType<number>;
-
-  export declare const string: (opts?: {
-    default?: string | (() => string);
-    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
-  }) => FieldType<string>;
 }
 
 // --------------------
@@ -1071,48 +930,5 @@ export class Schema<F extends Fields> implements SchemaInstance {
     void _parentFn;
     void _opts;
     return this;
-  }
-
-  /* ---------------------------------------------------------- */
-  /* Relationship helpers                                       */
-  /* ---------------------------------------------------------- */
-
-  /**
-   * Declare a *single* child relationship (has-one) to the supplied schema
-   * class.  Intended for inline use inside {@link Of} field definitions, e.g.:
-   *
-   * ```ts
-   * class LoginAttempt extends Schema.from({ … }) {}
-   * class LoginRecord extends Schema.from({
-   *   loginAttempt: Of(LoginRecord.hasOne(LoginAttempt)),
-   * }) {}
-   * ```
-   *
-   * At runtime this method creates **and returns** a lightweight marker object
-   * consumed by the `Of()` factory.  The descriptor is purely declarative – it
-   * carries *metadata only* and does not influence control-flow on its own.
-   */
-  static hasOne<Child extends SchemaClass>(
-    child: Child,
-  ): RelationshipDescriptor<Child, "one"> {
-    return {
-      [RELATIONSHIP]: true,
-      schemaClass: child,
-      cardinality: "one",
-    } as RelationshipDescriptor<Child, "one">;
-  }
-
-  /**
-   * Declare a *multi* child relationship (has-many) to the supplied schema
-   * class.  See {@link hasOne} for usage details.
-   */
-  static hasMany<Child extends SchemaClass>(
-    child: Child,
-  ): RelationshipDescriptor<Child, "many"> {
-    return {
-      [RELATIONSHIP]: true,
-      schemaClass: child,
-      cardinality: "many",
-    } as RelationshipDescriptor<Child, "many">;
   }
 }

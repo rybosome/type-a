@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, with as withSchema, one, many, nested } from "@rybosome/type-a";
+import { Schema, Of, has, one, many, nested } from "@rybosome/type-a";
 
 class LoginAttempt extends Schema.from({
   success: Of<one, boolean>({}),
@@ -8,21 +8,21 @@ class LoginAttempt extends Schema.from({
 }) {}
 
 class LoginRecord extends Schema.from({
-  loginAttempt: withSchema(LoginAttempt).Of<one, nested<LoginAttempt>>({}),
+  loginAttempt: has(LoginAttempt).Of<one, nested<LoginAttempt>>({}),
 }) {}
 
 class User extends Schema.from({
-  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>[]>({}),
+  loginAttempts: has(LoginAttempt).Of<many, nested<LoginAttempt>[]>({}),
 }) {}
 
 class Comment extends Schema.from({ msg: Of<one, string>({}) }) {}
 
 class Post extends Schema.from({
-  comments: withSchema(Comment).Of<many, nested<Comment>[]>({}),
+  comments: has(Comment).Of<many, nested<Comment>[]>({}),
 }) {}
 
 class Blog extends Schema.from({
-  posts: withSchema(Post).Of<many, nested<Post>[]>({}),
+  posts: has(Post).Of<many, nested<Post>[]>({}),
 }) {}
 
 describe("Schema – parent-driven hasOne/hasMany", () => {

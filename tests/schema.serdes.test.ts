@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, one } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (s: string) => new Date(s);
 
 class User extends Schema.from({
-  name: Of<string>(),
-  created: Of<Date, string>({ serdes: [serializeDate, deserializeDate] }),
+  name: Of<one, string>({}),
+  created: Of<one, Date, string>({ serdes: [serializeDate, deserializeDate] }),
 }) {}
 
 describe("Schema property custom (de)serialisers", () => {
@@ -25,7 +25,7 @@ describe("Schema property custom (de)serialisers", () => {
   });
 
   it("falls back to default behaviour when no serdes supplied", () => {
-    class Foo extends Schema.from({ value: Of<number>() }) {}
+    class Foo extends Schema.from({ value: Of<one, number>({}) }) {}
     const f = new Foo({ value: 42 });
     expect(f.toJSON()).toEqual({ value: 42 });
   });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema, Of, with as withSchema, one, many, nested } from "@rybosome/type-a";
+import { Schema, Of, has, one, many, nested } from "@rybosome/type-a";
 
 const validLogin = (val: LoginAttempt): true | string => {
   // Accept only timestamps >= 0
@@ -13,7 +13,7 @@ class LoginAttempt extends Schema.from({
 }) {}
 
 class User extends Schema.from({
-  loginAttempts: withSchema(LoginAttempt).Of<many, nested<LoginAttempt>[]>({
+  loginAttempts: has(LoginAttempt).Of<many, nested<LoginAttempt>[]>({
     is: validLogin,
   }),
 }) {}

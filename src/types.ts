@@ -167,14 +167,3 @@ export interface RelationshipDescriptor<
 export type Variant<
   Classes extends readonly { new (input: any): SchemaInstance }[],
 > = OutputOf<Classes[number]>;
-
-/**
- * Deprecated alias kept for smoother migration. Instantiating the runtime
- * value throws immediately with a descriptive error so that code relying on
- * the *value* (rather than the type) fails loudly.
- */
-
-// NOTE: The old `DiscriminatedUnion` runtime shim and type alias were removed.
-// If you still reference `DiscriminatedUnion` in user-land code, migrate to
-// the new `Variant` helper which provides the same compile-time behaviour
-// without the deprecated API surface.

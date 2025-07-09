@@ -17,7 +17,7 @@ export { nested } from "./nested";
 export type { nested as Nested } from "./nested";
 
 // Nested-schema builder bridge
-export { with } from "./with";
+export { has } from "./has";
 
 // Misc utilities & internal types
 export * from "./types";

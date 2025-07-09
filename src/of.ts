@@ -15,29 +15,23 @@ import type { FieldType } from "@src/schema";
 /* -------------------------------------------------------------------------- */
 
 /** If `T` is `nested<S>` unwrap to the *constructed* schema value, otherwise
-* leave untouched. */
-type UnwrapNested<T> = T extends nested<infer S> ? InstanceType<_NestedSchemaOf<T>> : T;
+ * leave untouched. */
+type UnwrapNested<T> =
+  T extends nested<infer S> ? InstanceType<_NestedSchemaOf<T>> : T;
 
 /** Derive the *final* value type stored in the field based on its cardinality
-* and (possibly nested) element type. */
+ * and (possibly nested) element type. */
 type FieldValue<C extends Cardinality, T> = C extends typeof one
   ? UnwrapNested<T>
   : C extends typeof many
     ? UnwrapNested<T>[]
     : never;
 
-// Extracting the nested schema constructor is no longer needed here because
-// callers now supply it exclusively via the `with()` helper.  Keep the utility
-// around (unused) for potential future internal use – it is not re-exported.
-/* eslint-disable @typescript-eslint/ban-types -- util */
-type _ObsoleteNestedSchemaOf<T> = _NestedSchemaOf<T> extends infer S ? S : never;
-/* eslint-enable */
-
 /**
-* Options object accepted by the `Of<C, T>()` builder. Most properties map
-* 1-to-1 to {@link FieldType}.  Nested schemas are now declared exclusively via
-* the {@link with} helper – therefore **no** constructor is accepted here.
-*/
+ * Options object accepted by the `Of<C, T>()` builder. Most properties map
+ * 1-to-1 to {@link FieldType}.  Nested schemas are now declared exclusively via
+ * the {@link with} helper – therefore **no** constructor is accepted here.
+ */
 export interface FieldOpts<C extends Cardinality, T> {
   default?: FieldValue<C, T> | (() => FieldValue<C, T>);
   is?:
@@ -55,16 +49,16 @@ export interface FieldOpts<C extends Cardinality, T> {
 /* -------------------------------------------------------------------------- */
 
 /**
-* Generic-only field builder.
-*
-* ```ts
-* class User extends Schema.from({
-*   name:  Of<one, string>({}),
-*   tags:  Of<many, string>({}),
-*   posts: with(Post).Of<many, nested<Post>[]?>({}),
-* });
-* ```
-*/
+ * Generic-only field builder.
+ *
+ * ```ts
+ * class User extends Schema.from({
+ *   name:  Of<one, string>({}),
+ *   tags:  Of<many, string>({}),
+ *   posts: with(Post).Of<many, nested<Post>[]?>({}),
+ * });
+ * ```
+ */
 export function Of<C extends Cardinality, T extends Typeable>(
   opts: FieldOpts<C, T>,
 ): FieldType<FieldValue<C, T>> {

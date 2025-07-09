@@ -3,14 +3,14 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
+import { Schema, Of, aUUID, atLeast, one } from "@rybosome/type-a";
 
 describe("Schema", () => {
   describe("basic functionality", () => {
     class User extends Schema.from({
-      id: Of.string({ is: aUUID }),
-      age: Of.number({ is: atLeast(18) }),
-      active: Of<boolean>({ default: true }), // default added here
+      id: Of<one, string>({ is: aUUID }),
+      age: Of<one, number>({ is: atLeast(18) }),
+      active: Of<one, boolean>({ default: true }), // default added here
     }) {
       greet() {
         const accountStatus = this.active ? "active" : "inactive";
@@ -55,19 +55,19 @@ describe("Schema", () => {
   describe("optional & nullable fields", () => {
     class OptModel extends Schema.from({
       // required – no default and `undefined` not allowed
-      required: Of.string(),
+      required: Of<one, string>({}),
 
       // optional – `undefined` explicitly allowed
-      optional: Of<string | undefined>(),
+      optional: Of<one, string | undefined>({}),
 
       // optional – default provided
-      optionalDefault: Of<string>({ default: "hi" }),
+      optionalDefault: Of<one, string>({ default: "hi" }),
 
       // nullable but still required (null OR string) – `undefined` not allowed
-      nullable: Of<string | null>(),
+      nullable: Of<one, string | null>({}),
 
       // optional & nullable – both undefined and null allowed
-      optionalNullable: Of<string | null | undefined>(),
+      optionalNullable: Of<one, string | null | undefined>([]),
     }) {}
 
     it("allows omitting optional keys", () => {
@@ -95,7 +95,7 @@ describe("Schema", () => {
       };
 
       class Model extends Schema.from({
-        flag: Of<boolean>({ default: nextBool }),
+        flag: Of<one, boolean>({ default: nextBool }),
       }) {}
 
       const a = new Model({});
@@ -114,7 +114,7 @@ describe("Schema", () => {
       };
 
       class Model extends Schema.from({
-        name: Of<string>({ default: fn }),
+        name: Of<one, string>({ default: fn }),
       }) {}
 
       const m = new Model({ name: "provided" });
@@ -126,7 +126,7 @@ describe("Schema", () => {
   describe("composite validators", () => {
     it("accepts a value when all composed validators pass", () => {
       class Model extends Schema.from({
-        age: Of<number>({
+        age: Of<one, number>({
           is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")],
         }),
       }) {}
@@ -139,7 +139,7 @@ describe("Schema", () => {
       const mustBeEven = (v: number) => (v % 2 === 0 ? true : "must be even");
 
       class Model extends Schema.from({
-        age: Of<number>({ is: [atLeast(10), mustBeEven] }),
+        age: Of<one, number>({ is: [atLeast(10), mustBeEven] }),
       }) {}
 
       const invalidLow = new Model({ age: 8 }); // fails atLeast(10) first
@@ -155,7 +155,7 @@ describe("Schema", () => {
 
     describe("bigint primitive", () => {
       class BigIntModel extends Schema.from({
-        qty: Of<bigint>({}),
+        qty: Of<one, bigint>({}),
       }) {}
 
       it("accepts a valid BigInt value", () => {
@@ -207,8 +207,8 @@ describe("Schema", () => {
      * it via the generated constructor type.
      */
     class Marker extends Schema.from({
-      color: Of<Color>(),
-      scented: Of<boolean>(),
+      color: Of<one, Color>({}),
+      scented: Of<one, boolean>({}),
     }) {}
 
     it("constructs with any allowed literal value and preserves it exactly", () => {

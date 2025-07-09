@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, Of, one } from "@rybosome/type-a";
 
 /* -------------------------------------------------------------------------- */
 /*  Simple Record & Map fields                                                */
@@ -15,10 +15,10 @@ import { Schema, Of } from "@rybosome/type-a";
 
 class SimpleMaps extends Schema.from({
   // Plain JS object with string keys/values
-  meta: Of<Record<string, string>>(),
+  meta: Of<one, Record<string, string>>({}),
 
   // Runtime Map with numeric keys and boolean values
-  flags: Of<Map<number, boolean>>(),
+  flags: Of<one, Map<number, boolean>>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */
@@ -26,7 +26,7 @@ class SimpleMaps extends Schema.from({
 /* -------------------------------------------------------------------------- */
 
 class NestedRecords extends Schema.from({
-  dict: Of<Record<string, Record<string, string>>>(),
+  dict: Of<one, Record<string, Record<string, string>>>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */
@@ -34,7 +34,7 @@ class NestedRecords extends Schema.from({
 /* -------------------------------------------------------------------------- */
 
 class NestedMaps extends Schema.from({
-  nested: Of<Map<string, Map<string, number>>>(),
+  nested: Of<one, Map<string, Map<string, number>>>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */
@@ -42,7 +42,7 @@ class NestedMaps extends Schema.from({
 /* -------------------------------------------------------------------------- */
 
 class MixedNested extends Schema.from({
-  mixed: Of<Record<string, Map<number, string>>>(),
+  mixed: Of<one, Record<string, Map<number, string>>>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */
