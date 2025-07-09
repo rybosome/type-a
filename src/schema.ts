@@ -30,39 +30,6 @@ export type SchemaClass = {
 
 export type Nested<S extends SchemaClass> = InputOf<S> | InstanceType<S>;
 
-/**
- * Recursively instantiate nested schema values.
- */
-export function instantiateNestedSchemas<T>(
-  value: unknown,
-  schemaClass: { new (v: any): T },
-): T | T[] {
-  console.error("instantiateNestedSchemas called with:", value);
-
-  if (Array.isArray(value)) {
-    const result = value.map((v) => {
-      const instance = v instanceof schemaClass ? v : new schemaClass(v);
-      console.error(" → instantiating array item:", v, "→", instance);
-      return instance;
-    });
-    return result;
-  }
-
-  if (value instanceof schemaClass) {
-    console.error(" → already instance of schemaClass:", value);
-    return value;
-  }
-
-  if (typeof value === "object" && value !== null) {
-    const instance = new schemaClass(value);
-    console.error(" → instantiated object:", value, "→", instance);
-    return instance;
-  }
-
-  console.error(" → returned unchanged:", value);
-  return value as T;
-}
-
 // --------------------
 // FieldType
 // --------------------
@@ -443,65 +410,6 @@ export function Of(...args: any[]): any {
   return base;
 }
 
-// ------------------------------------------------------------------
-// Sugar helpers – strict primitive shortcuts
-// ------------------------------------------------------------------
-
-// Attach helper factories directly to the `Of` function object to avoid
-// introducing a `namespace` (incompatible with ESM).
-
-Object.assign(Of, {
-  boolean: (opts?: {
-    default?: boolean | (() => boolean);
-    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
-  }) =>
-    Of<boolean>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.boolean,
-    } as any),
-
-  number: (opts?: {
-    default?: number | (() => number);
-    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
-  }) =>
-    Of<number>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.number,
-    } as any),
-
-  string: (opts?: {
-    default?: string | (() => string);
-    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
-  }) =>
-    Of<string>({
-      ...(opts ?? {}),
-      is: opts?.is ?? DEFAULT_VALIDATORS.string,
-    } as any),
-});
-
-// ------------------------------------------------------------------------------------------------
-// Static helper *types* – attach to the `Of` namespace so that callers get proper IntelliSense and
-// type-safety when using `Of.boolean()`, `Of.number()`, `Of.string()`.
-// ------------------------------------------------------------------------------------------------
-
-/* eslint-disable @typescript-eslint/no-namespace */
-export namespace Of {
-  export declare const boolean: (opts?: {
-    default?: boolean | (() => boolean);
-    is?: LogicalConstraint<boolean> | LogicalConstraint<boolean>[];
-  }) => FieldType<boolean>;
-
-  export declare const number: (opts?: {
-    default?: number | (() => number);
-    is?: LogicalConstraint<number> | LogicalConstraint<number>[];
-  }) => FieldType<number>;
-
-  export declare const string: (opts?: {
-    default?: string | (() => string);
-    is?: LogicalConstraint<string> | LogicalConstraint<string>[];
-  }) => FieldType<string>;
-}
-
 // --------------------
 // Schema and Model Types
 // --------------------
@@ -849,7 +757,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
       tryNew(
         input: ValueMap<F>,
       ): Result<Schema<F> & ValueMap<F>, ErrLog<ValueMap<F>>>;
-    } & Pick<typeof Schema, "nestedArray" | "nestedVariant">;
+    };
 
     return ModelWithSchema as {
       new (input: InputValueMap<F>): Schema<F> & ValueMap<F>;
@@ -999,6 +907,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
         }
 
         // Exotic objects (Date, RegExp, custom classes, etc.) – return as-is so callers can decide.
+        // TODO: this might overlook the case where serdes was used to bind to an object - we should handle that here
         return val;
       }
       return val; // primitive scalar
@@ -1036,41 +945,6 @@ export class Schema<F extends Fields> implements SchemaInstance {
       (json as Record<string, unknown>)[key] = serialise(rendered);
     }
     return json;
-  }
-
-  /* ---------------------------------------------------------- */
-  /* Registry helpers                                           */
-  /* ---------------------------------------------------------- */
-
-  /**
-   * Register the calling Schema class as the element type of an **array**
-   * field on a parent Schema.  Currently this helper is an identity function
-   * that returns the constructor so it can be used inline as a value argument
-   * to {@link Of}.  A future release may attach richer runtime metadata.
-   */
-  static nestedArray<Parent extends SchemaClass>(
-    this: SchemaClass,
-
-    _parentFn: () => Parent,
-    _opts?: { registry?: Registry },
-  ): typeof this {
-    void _parentFn;
-    void _opts;
-    return this;
-  }
-
-  /**
-   * Register the calling Schema class as a **variant** constructor on a parent
-   * Schema.  Identity function for now – behaviour mirrors {@link nestedArray}.
-   */
-  static nestedVariant<Parent extends SchemaClass>(
-    this: SchemaClass,
-    _parentFn: () => Parent,
-    _opts?: { registry?: Registry },
-  ): typeof this {
-    void _parentFn;
-    void _opts;
-    return this;
   }
 
   /* ---------------------------------------------------------- */
