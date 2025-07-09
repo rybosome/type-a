@@ -1,5 +1,6 @@
 export * from "./constraints";
 export * from "./schema";
+export * from "./field";
 export * from "./types";
 export * from "./registry";
 

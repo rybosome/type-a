@@ -7,7 +7,14 @@ This page demonstrates the six major type categories that **Type-A** supports ou
 The simplest use-case is validating JavaScript’s primitive types. The `is` option accepts one or more _constraints_ that must return `true` for valid values (or an error string otherwise).
 
 ```typescript test
-import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import {
+  Schema,
+  one,
+  type Typeable,
+  nonEmpty,
+  atLeast,
+} from "@rybosome/type-a";
+const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
 
 class Person extends Schema.from({
   // A non-empty string
@@ -28,7 +35,8 @@ expect(p.validate()).toEqual([]);
 Type unions restrict a field to one of several literal values at **compile-time**. Attach the built-in `aLiteral()` helper when you also want **runtime** validation.
 
 ```typescript test
-import { Schema, Of, aLiteral } from "@rybosome/type-a";
+import { Schema, one, type Typeable, aLiteral } from "@rybosome/type-a";
+const Of = <T extends Typeable>(opts: any = {}) => one().of<T>(opts);
 
 // "draft" | "published" | "archived"
 type PostState = "draft" | "published" | "archived";
@@ -56,7 +64,8 @@ expect(errs[0]).toBe(
 `Type A` doesn’t treat `null` and `undefined` as special cases – just include them in your union type. The `default` option marks a field as _optional_ and supplies a fallback when the caller omits the property or passes `undefined`.
 
 ```typescript test
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
+const Of = <T>(opts: any = {}) => one().of<T>(opts);
 
 class Profile extends Schema.from({
   // May be null; defaults to null when omitted
@@ -77,7 +86,8 @@ expect(me.bio).toBe("");
 Arrays use the familiar `T[]` syntax while tuples can express _fixed_ or _variadic_ positions. Everything after the first rest element (`...`) is still type-checked.
 
 ```typescript test
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
+const Of = <T>(opts: any = {}) => one().of<T>(opts);
 
 class Collection extends Schema.from({
   // A simple list of tags
@@ -97,7 +107,8 @@ expect(c.pair).toEqual([true, 42]);
 Schemas compose naturally – just pass another `Schema` class to `Of()` and **Type-A** recurses automatically when constructing, validating, and serializing.
 
 ```typescript test
-import { Schema, Nested, Of, nonEmpty } from "@rybosome/type-a";
+import { Schema, Nested, one, nonEmpty } from "@rybosome/type-a";
+const Of = <T>(opts: any = {}) => one().of<T>(opts);
 
 class Address extends Schema.from({
   street: Of<string>({ is: nonEmpty }),
@@ -122,7 +133,8 @@ expect(u.address.street).toBe("42 Main St");
 For types like `Date` (which can’t be represented directly in JSON) attach a _serializer / deserializer_ tuple. The constructor runs the deserializer while `toJSON()` applies the serializer automatically.
 
 ```typescript test
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
+const Of = <T, R = T>(opts: any = {}) => one().of<T>(opts);
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (iso: string) => new Date(iso);

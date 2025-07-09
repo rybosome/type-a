@@ -3,14 +3,14 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, aUUID, atLeast } from "@rybosome/type-a";
+import { Schema, one, aUUID, atLeast } from "@rybosome/type-a";
 
 describe("Schema", () => {
   describe("basic functionality", () => {
     class User extends Schema.from({
-      id: Of<string>({ is: aUUID }),
-      age: Of<number>({ is: atLeast(18) }),
-      active: Of<boolean>({ default: true }), // default added here
+      id: one().of<string>({ is: aUUID }),
+      age: one().of<number>({ is: atLeast(18) }),
+      active: one().of<boolean>({ default: true }), // default added here
     }) {
       greet() {
         const accountStatus = this.active ? "active" : "inactive";
@@ -55,19 +55,19 @@ describe("Schema", () => {
   describe("optional & nullable fields", () => {
     class OptModel extends Schema.from({
       // required – no default and `undefined` not allowed
-      required: Of<string>(),
+      required: one().of<string>({}),
 
       // optional – `undefined` explicitly allowed
-      optional: Of<string | undefined>(),
+      optional: one().of<string | undefined>({}),
 
       // optional – default provided
-      optionalDefault: Of<string>({ default: "hi" }),
+      optionalDefault: one().of<string>({ default: "hi" }),
 
       // nullable but still required (null OR string) – `undefined` not allowed
-      nullable: Of<string | null>(),
+      nullable: one().of<string | null>({}),
 
       // optional & nullable – both undefined and null allowed
-      optionalNullable: Of<string | null | undefined>(),
+      optionalNullable: one().of<string | null | undefined>({}),
     }) {}
 
     it("allows omitting optional keys", () => {
@@ -80,9 +80,10 @@ describe("Schema", () => {
     });
 
     it("blocks omission of required keys at compile-time", () => {
-      // @ts-expect-error – missing both `required` and `nullable`
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _bad = new OptModel({});
+      // Intentionally constructing with missing required fields – should **not** type-check.
+      // `@ts-expect-error` tells TypeScript we expect an error here so the build still passes.
+      // @ts-expect-error – required & nullable keys are missing
+      void new OptModel({});
     });
   });
 
@@ -95,7 +96,7 @@ describe("Schema", () => {
       };
 
       class Model extends Schema.from({
-        flag: Of<boolean>({ default: nextBool }),
+        flag: one().of<boolean>({ default: nextBool }),
       }) {}
 
       const a = new Model({});
@@ -114,7 +115,7 @@ describe("Schema", () => {
       };
 
       class Model extends Schema.from({
-        name: Of<string>({ default: fn }),
+        name: one().of<string>({ default: fn }),
       }) {}
 
       const m = new Model({ name: "provided" });
@@ -126,8 +127,11 @@ describe("Schema", () => {
   describe("composite validators", () => {
     it("accepts a value when all composed validators pass", () => {
       class Model extends Schema.from({
-        age: Of<number>({
-          is: [atLeast(10), (v) => (v % 2 === 0 ? true : "must be even")],
+        age: one().of<number>({
+          is: [
+            atLeast(10),
+            (v: number) => (v % 2 === 0 ? true : "must be even"),
+          ],
         }),
       }) {}
 
@@ -139,7 +143,7 @@ describe("Schema", () => {
       const mustBeEven = (v: number) => (v % 2 === 0 ? true : "must be even");
 
       class Model extends Schema.from({
-        age: Of<number>({ is: [atLeast(10), mustBeEven] }),
+        age: one().of<number>({ is: [atLeast(10), mustBeEven] }),
       }) {}
 
       const invalidLow = new Model({ age: 8 }); // fails atLeast(10) first
@@ -155,7 +159,7 @@ describe("Schema", () => {
 
     describe("bigint primitive", () => {
       class BigIntModel extends Schema.from({
-        qty: Of<bigint>({}),
+        qty: one().of<bigint>({}),
       }) {}
 
       it("accepts a valid BigInt value", () => {
@@ -207,8 +211,8 @@ describe("Schema", () => {
      * it via the generated constructor type.
      */
     class Marker extends Schema.from({
-      color: Of<Color>(),
-      scented: Of<boolean>(),
+      color: one().of<Color>({}),
+      scented: one().of<boolean>({}),
     }) {}
 
     it("constructs with any allowed literal value and preserves it exactly", () => {

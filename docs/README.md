@@ -3,12 +3,12 @@
 This repository uses **Type-A** for schema validation. The snippets below are **live tests** – they are automatically compiled and executed by the `pnpm docs:test` script to ensure the examples remain correct and type-safe.
 
 ```typescript test
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
 
 // A simple schema definition using Type-A.
 class User extends Schema.from({
-  name: Of<string>(),
-  age: Of<number>(),
+  name: one().of<string>({}),
+  age: one().of<number>({}),
 }) {}
 
 // Runtime validation & property access

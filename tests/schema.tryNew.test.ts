@@ -3,12 +3,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, one, nonEmpty, atLeast } from "@rybosome/type-a";
 
 // Create a minimal schema with two distinct fields
 const User = Schema.from({
-  name: Of<string>({ is: nonEmpty }),
-  age: Of<number>({ is: atLeast(18) }),
+  name: one().of<string>({ is: nonEmpty }),
+  age: one().of<number>({ is: atLeast(18) }),
 });
 
 describe("Schema.tryNew", () => {

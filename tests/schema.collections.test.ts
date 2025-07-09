@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one } from "@rybosome/type-a";
 
 /* -------------------------------------------------------------------------- */
 /*  Schema under test                                                         */
@@ -15,10 +15,10 @@ import { Schema, Of } from "@rybosome/type-a";
 
 class Collections extends Schema.from({
   // Fixed-length tuple – exactly two elements, boolean followed by number
-  pair: Of<[boolean, number]>(),
+  pair: one().of<[boolean, number]>({}),
 
   // Variadic tuple – at least one string, followed by zero or more strings
-  stringSequence: Of<[string, ...string[]]>(),
+  stringSequence: one().of<[string, ...string[]]>({}),
 }) {}
 
 /* -------------------------------------------------------------------------- */
