@@ -318,7 +318,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
         (acc as Record<string, string | undefined>)[key] = undefined;
         return acc;
       },
-      {} as ErrLog<InstanceType<typeof this>>,
+      // Narrow the ErrLog shape to *only* the declared schema keys. This
+      // prevents internal/private properties (such as `_fields` or helper
+      // methods) from leaking into the public error log surface.
+      {} as ErrLog<Pick<InstanceType<typeof this>, keyof typeof this._schema>>,
     );
 
     // Populate messages parsed from "<key>: <message>" strings.  For built-in
