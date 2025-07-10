@@ -38,6 +38,19 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
 };
 
 /**
+ * Convert an Array or Set to a plain array for uniform iteration semantics.
+ * Returns `null` when the supplied value is neither.
+ *
+ * This helper centralises runtime collection detection so that callers avoid
+ * duplicating the `Array.isArray` vs `instanceof Set` branching logic.
+ */
+function asIterable(v: unknown): unknown[] | null {
+  if (Array.isArray(v)) return v;
+  if (v instanceof Set) return Array.from(v);
+  return null;
+}
+
+/**
  * Combine several constraints into one.  Runs each in sequence and returns the
  * first non-`true` result (an error string) or `true` when all pass.
  */
@@ -187,9 +200,16 @@ export class Schema<F extends Fields> implements SchemaInstance {
           return val instanceof Ctor ? val : new Ctor(val as any);
         };
 
-        // Array-of-schema support
+        // Array-of-schema support (and Set-of-schema)
         if (Array.isArray(deserialised)) {
           return (deserialised as unknown[]).map(convert);
+        }
+        if ((deserialised as any) instanceof Set) {
+          const converted = new Set<unknown>();
+          for (const item of deserialised as Set<unknown>) {
+            converted.add(convert(item));
+          }
+          return converted;
         }
         return convert(deserialised);
       })();
@@ -223,7 +243,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
           if (!fieldDef.schemaClass && !fieldDef.variantClasses) {
             const runtimeKey = Array.isArray(deserialised)
               ? "array"
-              : typeof deserialised;
+              : (deserialised as any) instanceof Set
+                ? "set"
+                : typeof deserialised;
             const validator = (
               DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
             )[runtimeKey];
@@ -374,8 +396,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
           for (const msg of nestedErrors) errors.push(`${prefix}.${msg}`);
         };
 
-        if (Array.isArray(field.value)) {
-          field.value.forEach((item: unknown, idx: number) => {
+        const iterable = asIterable(field.value);
+
+        if (iterable) {
+          iterable.forEach((item: unknown, idx: number) => {
             if ((item as any)?.__isSchemaInstance) {
               pushNestedErrors(item as Schema<any>, `${key}[${idx}]`);
             }
@@ -390,8 +414,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       if (is && field.value !== undefined && field.value !== null) {
         // Apply validator differently for array vs single value
-        if (Array.isArray(field.value)) {
-          field.value.forEach((item: unknown, idx: number) => {
+        const iterable = asIterable(field.value);
+        if (iterable) {
+          iterable.forEach((item: unknown, idx: number) => {
             const res = is(item);
             if (res !== true) errors.push(`${key}[${idx}]: ${res}`);
           });
@@ -425,6 +450,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
       if (typeof val === "bigint") return val.toString();
 
       if (Array.isArray(val)) return val.map(serialise);
+      if (val instanceof Set) return Array.from(val).map(serialise);
       if (val instanceof Map) {
         const obj: Record<string, unknown> = {};
         for (const [k, v] of val.entries()) {
@@ -472,8 +498,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
       const raw = (() => {
         if (field.value == null) return field.value;
 
-        if (Array.isArray(field.value)) {
-          return field.value.map((v: unknown) =>
+        const iterable = asIterable(field.value);
+        if (iterable) {
+          return iterable.map((v: unknown) =>
             (v as any)?.__isSchemaInstance ? (v as Schema<any>).toJSON() : v,
           );
         }
@@ -491,6 +518,12 @@ export class Schema<F extends Fields> implements SchemaInstance {
         ];
         if (raw == null) return raw;
         if (Array.isArray(raw)) return raw.map(serialize);
+        if (raw instanceof Set) {
+          const transformed: unknown[] = [];
+          for (const item of raw as Set<unknown>)
+            transformed.push(serialize(item));
+          return transformed;
+        }
         return serialize(raw);
       })();
 
