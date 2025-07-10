@@ -268,10 +268,18 @@ export class Schema<F extends Fields> implements SchemaInstance {
     }
 
     type StaticHelpers = {
-      /** See {@link Schema.tryNew} */
+      /** See {@link Schema.fromJSON} */
+      fromJSON(
+        input: unknown,
+      ): Result<Schema<F> & ValueMap<F>, ErrLog<Schema<F> & ValueMap<F>>>;
+
+      /**
+       * @deprecated Use {@link fromJSON} instead. Will be removed in a future
+       * major version.
+       */
       tryNew(
-        input: ValueMap<F>,
-      ): Result<Schema<F> & ValueMap<F>, ErrLog<ValueMap<F>>>;
+        input: unknown,
+      ): Result<Schema<F> & ValueMap<F>, ErrLog<Schema<F> & ValueMap<F>>>;
     };
 
     return ModelWithSchema as {
@@ -284,14 +292,19 @@ export class Schema<F extends Fields> implements SchemaInstance {
    * Static constructor with built-in validation and aggregated error
    * reporting.
    */
-  static tryNew<I extends Fields>(
+  static fromJSON(
     this: {
-      new (input: I): Schema<any> & I;
+      // Accept *any* JSON object.  Specific runtime validation still occurs
+      // through the constructor and `validate()` calls.
+      new (input: any): Schema<any> & Fields;
       _schema: Fields;
     },
-    input: I,
-  ): Result<InstanceType<typeof this>, ErrLog<I>> {
-    const instance = new this(input);
+    input: unknown,
+  ): Result<InstanceType<typeof this>, ErrLog<InstanceType<typeof this>>> {
+    // Bypass compile-time checks – the constructor performs runtime
+    // validation anyway.
+
+    const instance = new this(input as any);
     const validationErrors = instance.validate();
 
     if (validationErrors.length === 0) {
@@ -300,10 +313,13 @@ export class Schema<F extends Fields> implements SchemaInstance {
     }
 
     // failure path – build ErrLog with undefined for each field first
-    const errLog = Object.keys(this._schema).reduce((acc, key) => {
-      (acc as Record<string, string | undefined>)[key] = undefined;
-      return acc;
-    }, {} as ErrLog<I>);
+    const errLog = Object.keys(this._schema).reduce(
+      (acc, key) => {
+        (acc as Record<string, string | undefined>)[key] = undefined;
+        return acc;
+      },
+      {} as ErrLog<InstanceType<typeof this>>,
+    );
 
     // Populate messages parsed from "<key>: <message>" strings.  For built-in
     // *primitive* validators we intentionally keep the full string (including
@@ -330,6 +346,14 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
     return { val: undefined, errs: errLog };
   }
+
+  /**
+   * @deprecated Renamed to {@link Schema.fromJSON}.  This alias will be
+   * removed in a future major release.
+   */
+  static tryNew = Schema.fromJSON as unknown as (typeof Schema & {
+    fromJSON: typeof Schema.fromJSON;
+  })["fromJSON"];
 
   validate(): string[] {
     const schema = (this.constructor as unknown as { _schema: F })._schema;

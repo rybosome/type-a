@@ -99,7 +99,7 @@ export type ErrLog<T> = {
 };
 
 /**
- * Convenience alias representing the same shape returned by `Schema.tryNew`.
+ * Convenience alias representing the same shape returned by `Schema.fromJSON`.
  * On success `val` is provided, on failure `errs` is populated.
  */
 export type Maybe<T> = Result<T, ErrLog<T>>;

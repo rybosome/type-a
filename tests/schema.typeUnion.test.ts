@@ -20,7 +20,7 @@ describe("Schema Union type support", () => {
   });
 
   it("produces no validation errors for valid inputs", () => {
-    const res = Response.tryNew({ status: "ok" });
+    const res = Response.fromJSON({ status: "ok" });
     expect(res.errs).toBeUndefined();
     expect(res.val?.status).toBe("ok");
   });

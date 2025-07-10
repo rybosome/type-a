@@ -41,7 +41,7 @@ class User extends Schema.from({
 //
 
 // Try to create a new object from the given (statically-typed) input.
-const goodResult: Maybe<User> = User.tryNew({
+const goodResult: Maybe<User> = User.fromJSON({
   id: "123e4567-e89b-12d3-a456-426614174000",
   age: 30,
 });
@@ -57,7 +57,7 @@ if (goodResult.val) {
 //
 
 // Try to create a new object that is correctly typed but violates logical constraints.
-const badResult: Maybe<User> = User.tryNew({ id: "not a UUID", age: 25 });
+const badResult: Maybe<User> = User.fromJSON({ id: "not a UUID", age: 25 });
 
 // .errs is a structured object containing fields mapping to our original object.
 if (badResult.errs) {
