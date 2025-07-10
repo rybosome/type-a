@@ -126,17 +126,22 @@ export const t = {
    * one of the primitives) describing how the raw form should be validated /
    * emitted in JSON Schema.
    */
-  serdes<TVal, TRaw>(
-    valExample: { new (...args: never[]): any } | (TVal & {}),
+  serdes<V, TRaw>(
+    // The *value example* can be either a constructor (e.g. `Date`) **or** an
+    // exemplar literal/instance (e.g. `123n` for `bigint`).  We use a
+    // conditional type to derive the exposed `TVal` accordingly.
+    valExample: V,
     rawSpec: TypedSpec<TRaw>,
-  ): TypedSpec<TVal, TRaw> {
-    // The first parameter is only used for generic inference – the runtime
-    // value is irrelevant.  We therefore ignore it.
+  ): TypedSpec<V extends new (...args: any) => infer I ? I : V, TRaw> {
     return {
       kind: "serdes",
       rawSpec,
-      __v: undefined as unknown as TVal,
+
+      __v: undefined as unknown as V extends new (...args: any) => infer I
+        ? I
+        : V,
+
       __r: undefined as unknown as TRaw,
-    } as TypedSpec<TVal, TRaw>;
+    } as TypedSpec<V extends new (...args: any) => infer I ? I : V, TRaw>;
   },
 } as const;

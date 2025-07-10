@@ -83,6 +83,18 @@ function validateValueAgainstSpec(
         : value instanceof Set
           ? "set"
           : typeof value;
+
+      // Derive the *expected* primitive key from the descriptor instance so
+      // that we can cross-check (e.g. `t.string` only accepts `string`).
+      let expectedKey: string | undefined;
+      if (spec === t.string) expectedKey = "string";
+      else if (spec === t.number) expectedKey = "number";
+      else if (spec === t.boolean) expectedKey = "boolean";
+
+      if (expectedKey && expectedKey !== runtimeKey) {
+        return `expected ${expectedKey}`;
+      }
+
       const validator = DEFAULT_VALIDATORS[runtimeKey];
       return validator ? validator(value) : true;
     }
@@ -358,6 +370,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
             "kind" in spec &&
             spec.kind !== "union" &&
             spec.kind !== "variant" &&
+            spec.kind !== "serdes" &&
             !(field as any).schemaClass
           ) {
             const r = validateValueAgainstSpec(item, spec as TypedSpec<any>);
@@ -377,6 +390,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
         "kind" in spec &&
         spec.kind !== "union" &&
         spec.kind !== "variant" &&
+        spec.kind !== "serdes" &&
         !(field as any).schemaClass
       ) {
         const r = validateValueAgainstSpec(val, spec as TypedSpec<any>);
