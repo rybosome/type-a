@@ -61,10 +61,10 @@ From `src/constraints/numeric.ts`:
 
 The phantom `__t` property is the _tell_ that the existing implementation relies on **generic-only knowledge**. Every write/read must be replaced or removed when we introduce `spec: TypedSpec`.
 
-| File            | Line  | Code excerpt                                        | Purpose                                                                                   |
-| --------------- | ----- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `src/field.ts`  | [`45-48`](https://github.com/rybosome/type-a/blob/d78839dec586e0721d8955756ceaf10b760e41f9/src/field.ts#L45-L48) | `__t: undefined as unknown as T`                    | Sets phantom on every new `FieldType` instance.                                           |
-| `src/types.ts`  | [`178`](https://github.com/rybosome/type-a/blob/d78839dec586e0721d8955756ceaf10b760e41f9/src/types.ts#L178)      | `readonly __t: T;`                                  | Compile-time preservation in `FieldType<T>`.                                              |
+| File            | Line                                                                                                              | Code excerpt                                        | Purpose                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/field.ts`  | [`45-48`](https://github.com/rybosome/type-a/blob/d78839dec586e0721d8955756ceaf10b760e41f9/src/field.ts#L45-L48)  | `__t: undefined as unknown as T`                    | Sets phantom on every new `FieldType` instance.                                           |
+| `src/types.ts`  | [`178`](https://github.com/rybosome/type-a/blob/d78839dec586e0721d8955756ceaf10b760e41f9/src/types.ts#L178)       | `readonly __t: T;`                                  | Compile-time preservation in `FieldType<T>`.                                              |
 | `src/schema.ts` | [`89-96`](https://github.com/rybosome/type-a/blob/d78839dec586e0721d8955756ceaf10b760e41f9/src/schema.ts#L89-L96) | `if (!fieldDef.schemaClass && "__t" in fieldDef)` … | _Heuristic_ that infers `schemaClass` for nested schemas by inspecting the phantom value. |
 
 No tests or utilities read `__t` directly – the schema constructor is the single runtime consumer.
