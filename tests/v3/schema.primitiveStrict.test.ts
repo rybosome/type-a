@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 
-import { Schema } from "../../src/v3/schema";
-import { one } from "../../src/v3/field";
-import { t } from "../../src/v3/typed";
+import { Schema } from "@src/schema";
+import { one } from "@src/field";
+import { t } from "@src/typed";
 
 class Flags extends Schema.from({
   active: one(t.boolean),

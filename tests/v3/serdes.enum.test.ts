@@ -3,9 +3,9 @@ import { describe, it, expect } from "vitest";
 // Import *directly* from the v3 prototype modules (they are **not** re-exported
 // through the package root yet – the migration branch keeps them side-by-side
 // with the legacy implementation).
-import { Schema } from "../../src/v3/schema";
-import { one } from "../../src/v3/field";
-import { t } from "../../src/v3/typed";
+import { Schema } from "@src/schema";
+import { one } from "@src/field";
+import { t } from "@src/typed";
 
 /**
  * End-to-end checks for the `enum` and `serdes` `TypedSpec.kind`s introduced

@@ -4,9 +4,9 @@
 
 import { describe, it, expect } from "vitest";
 
-import { Schema } from "../../src/v3/schema";
-import { many } from "../../src/v3/field";
-import { t } from "../../src/v3/typed";
+import { Schema } from "@src/schema";
+import { many } from "@src/field";
+import { t } from "@src/typed";
 
 class TagCollection extends Schema.from({
   tags: many(t.string, { asSet: true }),
