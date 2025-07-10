@@ -155,7 +155,13 @@ Generate JSON schema documents at runtime for your class definitions.
 
 TODO: document links to...
 
-- one/many entrypoints
+- entrypoints: one/many
 - types in typing
-- constraints
+  - primitives
+  - tuples, unions, variants
+  - maps
+  - nested schemas
+- config options
+  - constraints
+  - serdes
 - examples
