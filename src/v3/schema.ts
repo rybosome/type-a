@@ -38,6 +38,7 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
       ? true
       : "expected finite number",
   string: (v: unknown) => (typeof v === "string" ? true : "expected string"),
+  bigint: (v: unknown) => (typeof v === "bigint" ? true : "expected bigint"),
   array: (v: unknown) => (Array.isArray(v) ? true : "expected array"),
   set: (v: unknown) => (v instanceof Set ? true : "expected set"),
   object: (v: unknown) =>
@@ -90,6 +91,7 @@ function validateValueAgainstSpec(
       if (spec === t.string) expectedKey = "string";
       else if (spec === t.number) expectedKey = "number";
       else if (spec === t.boolean) expectedKey = "boolean";
+      else if (spec === t.bigint) expectedKey = "bigint";
 
       if (expectedKey && expectedKey !== runtimeKey) {
         return `expected ${expectedKey}`;
@@ -549,6 +551,8 @@ export class Schema<F extends Fields> implements SchemaInstance {
           if (spec === t.string) typeStr = "string";
           else if (spec === t.number) typeStr = "number";
           else if (spec === t.boolean) typeStr = "boolean";
+          else if (spec === t.bigint)
+            typeStr = "string"; // encode bigint as string in JSON
           else typeStr = "string"; // fallback
           return { type: typeStr };
         }

@@ -96,6 +96,34 @@ export const t = {
     __v: undefined as unknown as boolean,
   } as TypedSpec<boolean>,
 
+  /* ---------------------------- bigint ---------------------------- */
+
+  /**
+   * Native `bigint` primitive descriptor.
+   */
+  bigint: {
+    kind: "primitive",
+    __v: undefined as unknown as bigint,
+  } as TypedSpec<bigint>,
+
+  /* ----------------------------- any ------------------------------ */
+
+  /**
+   * Generic catch-all helper that preserves the compile-time type `T` without
+   * attaching any additional runtime semantics beyond the "primitive" kind.
+   *
+   * This is primarily used during the v3 migration to bridge features that do
+   * not yet have a dedicated runtime descriptor (tuple, Record, Map, etc.).
+   * Call-sites should migrate to a richer `t.*` helper once one becomes
+   * available.
+   */
+  any<T>(): TypedSpec<T> {
+    return {
+      kind: "primitive",
+      __v: undefined as unknown as T,
+    } as TypedSpec<T>;
+  },
+
   /* ----------------------------- literal --------------------------- */
 
   /**
