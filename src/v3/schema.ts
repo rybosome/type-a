@@ -130,18 +130,24 @@ function validateValueAgainstSpec(
 // pickCtor – simple heuristic to choose a constructor from `spec.ctors`
 // ---------------------------------------------------------------------------
 
-function pickCtor(raw: unknown, ctors: readonly SchemaClass[]): SchemaClass {
+function pickCtor(
+  raw: unknown,
+  ctors: readonly SchemaClass[],
+  discriminatorProp: string = "kind",
+): SchemaClass {
   if (!raw || typeof raw !== "object") return ctors[0];
 
-  // Discriminator property heuristic (assumes `kind` literal field)
-  const discriminator = (raw as any).kind;
+  // Discriminator property heuristic.
+  const discriminator = (raw as any)[discriminatorProp];
   if (discriminator != null) {
     const match = ctors.find((C) => {
       try {
         const schema = (C as any)._schema as Fields;
-        const kindField = schema?.kind;
-        if (!kindField) return false;
-        const litSpec = (kindField as any).spec as TypedSpec<any> | undefined;
+        const field = (schema as any)[discriminatorProp] as
+          | FieldType<any>
+          | undefined;
+        if (!field) return false;
+        const litSpec = (field as any).spec as TypedSpec<any> | undefined;
         return litSpec?.kind === "literal" && litSpec.literal === discriminator;
       } catch {
         return false;
@@ -259,7 +265,11 @@ export class Schema<F extends Fields> implements SchemaInstance {
           typeof spec === "object" &&
           (spec.kind === "union" || spec.kind === "variant")
         ) {
-          const ctor = pickCtor(val, spec.ctors!);
+          const ctor = pickCtor(
+            val,
+            spec.ctors!,
+            spec.discriminator?.propertyName ?? "kind",
+          );
           return val instanceof ctor ? val : new ctor(val as any);
         }
 
@@ -379,6 +389,29 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
           runValidators(item, `${String(key)}[${idx}]`);
           recurseNested(item, `${String(key)}[${idx}]`);
+
+          // Union / variant items validation
+          if (
+            spec &&
+            typeof spec === "object" &&
+            (spec.kind === "union" || spec.kind === "variant")
+          ) {
+            if (!(item as any)?.__isSchemaInstance) {
+              try {
+                const ctor = pickCtor(
+                  item,
+                  spec.ctors!,
+                  spec.discriminator?.propertyName ?? "kind",
+                );
+                const instance = new ctor(item as any) as Schema<any>;
+                for (const msg of instance.validate()) {
+                  errors.push(`${String(key)}[${idx}].${msg}`);
+                }
+              } catch (e) {
+                errors.push(`${String(key)}[${idx}]: ${(e as Error).message}`);
+              }
+            }
+          }
         });
         continue;
       }
@@ -399,6 +432,31 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       runValidators(val, String(key));
       recurseNested(val, String(key));
+
+      // 3. Union / variant runtime validation ---------------------------
+      if (
+        spec &&
+        typeof spec === "object" &&
+        (spec.kind === "union" || spec.kind === "variant")
+      ) {
+        // When the value is *not* already a Schema instance we need to pick
+        // the appropriate constructor and validate recursively.
+        if (!(val as any)?.__isSchemaInstance) {
+          try {
+            const ctor = pickCtor(
+              val,
+              spec.ctors!,
+              spec.discriminator?.propertyName ?? "kind",
+            );
+            const instance = new ctor(val as any) as Schema<any>;
+            for (const msg of instance.validate()) {
+              errors.push(`${String(key)}.${msg}`);
+            }
+          } catch (e) {
+            errors.push(`${String(key)}: ${(e as Error).message}`);
+          }
+        }
+      }
     }
 
     return errors;
@@ -515,7 +573,10 @@ export class Schema<F extends Fields> implements SchemaInstance {
         case "variant": {
           return {
             oneOf: spec.ctors!.map((C) => (C as any).jsonSchema()),
-            discriminator: { propertyName: "kind" },
+            discriminator: {
+              propertyName:
+                (spec.discriminator?.propertyName as string) ?? "kind",
+            },
           };
         }
         default:

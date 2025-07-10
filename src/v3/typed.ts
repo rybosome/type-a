@@ -54,6 +54,13 @@ export interface TypedSpec<TVal, TRaw = TVal> {
   /** For `union` / `variant` specs. */
   readonly ctors?: readonly SchemaClass[];
 
+  /**
+   * For `variant` specs the discriminating property name used to pick the
+   * constructor and surfaced in JSON-Schema output.  When omitted it defaults
+   * to the widely-used "kind" key.
+   */
+  readonly discriminator?: { propertyName: string };
+
   /** For `serdes` specs: descriptor of the _raw_ representation. */
   readonly rawSpec?: TypedSpec<TRaw>;
 }
@@ -108,14 +115,41 @@ export const t = {
 
   union<C extends readonly SchemaClass[]>(
     ctors: C,
-  ): TypedSpec<InstanceType<C[number]>> {
-    return { kind: "union", ctors } as TypedSpec<InstanceType<C[number]>>;
+  ): TypedSpec<
+    InstanceType<C[number]>,
+    import("@src/types").InputOf<C[number]>
+  > {
+    type Val = InstanceType<C[number]>;
+
+    return { kind: "union", ctors } as TypedSpec<
+      Val,
+      import("@src/types").InputOf<C[number]>
+    >;
   },
 
+  /**
+   * Discriminated union helper – creates a `variant` spec accepting any of the
+   * provided `Schema` classes.  At runtime the constructor is chosen based on
+   * the value of the `propertyName` (defaults to `"kind"`).
+   *
+   * @param ctors           Array of `Schema` classes that form the union.
+   * @param propertyName    Discriminator key. All branches should have a
+   *                        `literal` field with this name.
+   */
   variant<C extends readonly SchemaClass[]>(
     ctors: C,
-  ): TypedSpec<InstanceType<C[number]>> {
-    return { kind: "variant", ctors } as TypedSpec<InstanceType<C[number]>>;
+    propertyName: string = "kind",
+  ): TypedSpec<
+    InstanceType<C[number]>,
+    import("@src/types").InputOf<C[number]>
+  > {
+    type Val = InstanceType<C[number]>;
+
+    return {
+      kind: "variant",
+      ctors,
+      discriminator: { propertyName },
+    } as TypedSpec<Val, import("@src/types").InputOf<C[number]>>;
   },
 
   /* ------------------------------ serdes --------------------------- */
