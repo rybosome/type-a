@@ -4,27 +4,13 @@ import { Schema, one } from "@rybosome/type-a";
 
 import type { Serdes } from "@rybosome/type-a";
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                     */
-/* -------------------------------------------------------------------------- */
-
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (s: string) => new Date(s);
 
-/* -------------------------------------------------------------------------- */
-/* Schema under test                                                           */
-/* -------------------------------------------------------------------------- */
-
 class User extends Schema.from({
   name: one().of<string>({}),
-  created: one().of<Serdes<Date, string>>({
-    serdes: [serializeDate, deserializeDate],
-  }),
+  created: one().of<Serdes<Date, string>>({ serdes: [serializeDate, deserializeDate] }),
 }) {}
-
-/* -------------------------------------------------------------------------- */
-/* Tests                                                                       */
-/* -------------------------------------------------------------------------- */
 
 describe("Schema property custom (de)serialisers", () => {
   it("round-trips Date <-> string correctly", () => {
