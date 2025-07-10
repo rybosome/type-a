@@ -157,6 +157,20 @@ interface ManyNoSchemaBuilder {
   of<Spec extends (Typeable | Serdes<any, any>)[]>(
     opts: WithoutDefaultSpec<Spec>,
   ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
+
+  // --------------------------
+  // Set<T> overloads
+  // --------------------------
+
+  of<Spec extends Set<Typeable>>(
+    opts: FieldOpts<Spec, Spec> & {
+      default: Spec | (() => Spec);
+    },
+  ): FieldWithDefault<Spec, Spec>;
+
+  of<Spec extends Set<Typeable>>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<Spec, Spec>;
 }
 
 interface ManyWithSchemaBuilder<S extends SchemaClass> {
@@ -171,6 +185,17 @@ interface ManyWithSchemaBuilder<S extends SchemaClass> {
   ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
     schemaClass: S;
   };
+
+  // Set<T> overloads (nested schema not supported for sets yet – treat as primitive)
+  of<Spec extends Set<Typeable>>(
+    opts: FieldOpts<Spec, Spec> & {
+      default: Spec | (() => Spec);
+    },
+  ): FieldWithDefault<Spec, Spec> & { schemaClass: S };
+
+  of<Spec extends Set<Typeable>>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<Spec, Spec> & { schemaClass: S };
 }
 
 export function many(): ManyNoSchemaBuilder;
@@ -179,7 +204,7 @@ export function many<S extends SchemaClass>(
 ): ManyWithSchemaBuilder<S>;
 export function many(schemaClass?: SchemaClass): any {
   return {
-    of<T extends Typeable[]>(opts: FieldOpts<T>): FieldType<T> {
+    of<T extends Typeable[] | Set<Typeable>>(opts: FieldOpts<T>): FieldType<T> {
       return makeField(opts, schemaClass);
     },
   };

@@ -48,6 +48,7 @@ export type Typeable =
   | TupleTypeable
   | { [key: string]: Typeable }
   | Map<unknown, Typeable>
+  | Set<Typeable>
   // Allow arbitrary object instances (Date, URL, custom classes) so that
   // callers can plug custom (de)serialisers without fighting the type
   // system.
