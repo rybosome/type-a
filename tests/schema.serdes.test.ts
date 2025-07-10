@@ -9,7 +9,9 @@ const deserializeDate = (s: string) => new Date(s);
 
 class User extends Schema.from({
   name: one().of<string>({}),
-  created: one().of<Serdes<Date, string>>({ serdes: [serializeDate, deserializeDate] }),
+  created: one().of<Serdes<Date, string>>({
+    serdes: [serializeDate, deserializeDate],
+  }),
 }) {}
 
 describe("Schema property custom (de)serialisers", () => {
@@ -32,7 +34,8 @@ describe("Schema property custom (de)serialisers", () => {
     expect(f.toJSON()).toEqual({ value: 42 });
   });
 
-  // Intentionally mismatched serializer/deserializer types – should still type-check
+  // Intentionally mismatched serializer/deserializer types – should NOT type-check
+  // @ts-expect-error – Wrong serdes types
   void one().of<Serdes<Date, number>>({
     serdes: [(_: Date) => 123, (s: string) => new Date(s)],
   });

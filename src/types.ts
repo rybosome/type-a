@@ -272,12 +272,6 @@ export interface FieldType<T extends Typeable, R = T> {
 
   /**
    * Optional custom serialisation/deserialisation tuple applied to the raw
-   * value during `Schema` construction and when calling `toJSON()`.  The first
-   * element is the **deserialiser** (raw -> in-memory), the second is the
-   * **serialiser** (in-memory -> raw).
-   */
-  /**
-   * Optional custom serialisation/deserialisation tuple applied to the raw
    * value during construction and when calling `toJSON()`.  The tuple obeys
    * the {@link Serdes} contract:  `[serialize, deserialize]`.
    */
