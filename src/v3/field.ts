@@ -39,6 +39,13 @@ interface FieldExtras {
 
   /** Human-readable description forwarded to JSON-Schema `description`. */
   described?: string;
+
+  /**
+   * When used with {@link many}, declares that the collection should be a
+   * `Set` instead of the default `Array`.  This flag has **no effect** when
+   * passed to {@link one}.
+   */
+  asSet?: boolean;
 }
 
 import type { RawOfSpec, TypedSpec, ValueOfSpec } from "./typed.js";
@@ -123,17 +130,44 @@ export function one<S extends SchemaClass | TypedSpec<any, any>>(
 // many() builder — arrays only for the prototype (Set support later).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// many() builder — supports both Array (default) **and** Set collections.
+// ---------------------------------------------------------------------------
+
+// Overload – Array (default)
 export function many<S extends SchemaClass | TypedSpec<any, any>>(
   spec: S,
-  opts: FieldOpts<Array<ValueOf<S>>, Array<RawOf<S>>> = {},
-): FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & { spec: S } {
-  // Cast `opts` through `unknown` to bypass the mismatch between the single-
-  // value signature expected by `makeField()` and the array-wrapped variant we
-  // expose here.  Properly specialised helpers will land in a later phase.
-  const field = makeField(
+  opts?: FieldOpts<Array<ValueOf<S>>, Array<RawOf<S>>> & {
+    asSet?: false | undefined;
+  },
+): FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & { spec: S };
+
+// Overload – Set (when opts.asSet === true)
+export function many<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: FieldOpts<Set<ValueOf<S>>, Set<RawOf<S>>> & { asSet: true },
+): FieldType<Set<ValueOf<S>>, Set<RawOf<S>>> & { spec: S };
+
+// Implementation
+export function many<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: any = {},
+): FieldType<any, any> & { spec: S } {
+  const isSet = (opts as FieldExtras | undefined)?.asSet === true;
+
+  // Cast through `unknown` because `makeField` operates on the *element* type.
+  const fieldBase = makeField(
     spec,
     opts as unknown as FieldOpts<ValueOf<S>, RawOf<S>>,
-  ) as FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & { spec: S };
-  (field as any).cardinality = "many";
-  return field;
+  ) as FieldType<any, any> & { spec: S };
+
+  if (isSet) {
+    (fieldBase as any).cardinality = "set";
+    return fieldBase as FieldType<Set<ValueOf<S>>, Set<RawOf<S>>> & { spec: S };
+  }
+
+  (fieldBase as any).cardinality = "array";
+  return fieldBase as FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & {
+    spec: S;
+  };
 }

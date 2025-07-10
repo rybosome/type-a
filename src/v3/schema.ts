@@ -39,6 +39,7 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
       : "expected finite number",
   string: (v: unknown) => (typeof v === "string" ? true : "expected string"),
   array: (v: unknown) => (Array.isArray(v) ? true : "expected array"),
+  set: (v: unknown) => (v instanceof Set ? true : "expected set"),
   object: (v: unknown) =>
     v !== null && typeof v === "object" && !Array.isArray(v)
       ? true
@@ -80,7 +81,7 @@ function validateValueAgainstSpec(
       const runtimeKey = Array.isArray(value)
         ? "array"
         : value instanceof Set
-          ? "array" // treat Set like array for now
+          ? "set"
           : typeof value;
       const validator = DEFAULT_VALIDATORS[runtimeKey];
       return validator ? validator(value) : true;
@@ -259,7 +260,12 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
         const iterable = asIterable(deserialised);
         if (iterable) {
-          return iterable.map(coerceNested);
+          const mapped = iterable.map(coerceNested);
+          const card = (fieldDef as any).cardinality ?? "array";
+          if (card === "set") {
+            return new Set(mapped);
+          }
+          return mapped;
         }
 
         return coerceNested(deserialised);
@@ -509,7 +515,11 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       let propSchema = specToSchema(spec);
 
-      if (cardinality === "many") {
+      if (
+        cardinality === "array" ||
+        cardinality === "set" ||
+        cardinality === "many"
+      ) {
         propSchema = { type: "array", items: propSchema };
       }
 
