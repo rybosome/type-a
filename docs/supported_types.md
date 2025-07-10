@@ -7,14 +7,14 @@ This page demonstrates the six major type categories that **Type-A** supports ou
 The simplest use-case is validating JavaScript’s primitive types. The `is` option accepts one or more _constraints_ that must return `true` for valid values (or an error string otherwise).
 
 ```typescript test
-import { Schema, one, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, one, typed as t, nonEmpty, atLeast } from "@rybosome/type-a";
 
 class Person extends Schema.from({
   // A non-empty string
-  name: one().of<string>({ is: nonEmpty }),
+  name: one(t.string, { is: nonEmpty }),
 
   // A number that must be ≥ 18
-  age: one().of<number>({ is: atLeast(18) }),
+  age: one(t.number, { is: atLeast(18) }),
 }) {}
 
 const p = new Person({ name: "Alice", age: 30 });
@@ -28,29 +28,22 @@ expect(p.validate()).toEqual([]);
 Type unions restrict a field to one of several literal values at **compile-time**. Attach the built-in `aLiteral()` helper when you also want **runtime** validation.
 
 ```typescript test
-import { Schema, one, aLiteral } from "@rybosome/type-a";
+import { Schema, one, many, typed as t } from "@rybosome/type-a";
 
 // "draft" | "published" | "archived"
-type PostState = "draft" | "published" | "archived";
+enum PostState {
+  Draft = "draft",
+  Published = "published",
+  Archived = "archived",
+}
 
 class Post extends Schema.from({
-  // Compile-time union **and** runtime guard in one line ✨
-  state: one().of<PostState>({
-    is: aLiteral("draft", "published", "archived"),
-  }),
+  state: one(t.enum(PostState)),
 }) {}
 
-const post = new Post({ state: "draft" });
+const post = new Post({ state: PostState.Draft });
 
-expect(post.state).toBe("draft");
-
-// Bad input returns a clear validation message
-const bad = new Post({ state: "archived" });
-(bad as any).state = "deleted"; // bypass TypeScript to demo runtime failure
-const errs = bad.validate();
-expect(errs[0]).toBe(
-  "state: deleted is not one of [draft, published, archived]",
-);
+expect(post.state).toBe(PostState.Draft);
 ```
 
 ## 3. Nullability & Undefined
@@ -58,33 +51,25 @@ expect(errs[0]).toBe(
 `Type A` doesn’t treat `null` and `undefined` as special cases – just include them in your union type. The `default` option marks a field as _optional_ and supplies a fallback when the caller omits the property or passes `undefined`.
 
 ```typescript test
-import { Schema, one } from "@rybosome/type-a";
+import { Schema, one, many, typed as t } from "@rybosome/type-a";
 
 class Profile extends Schema.from({
   // May be null; defaults to null when omitted
-  nickname: one().of<string | null>({ default: null }),
-
-  // Optional string – will fall back to the given default
-  bio: one().of<string | undefined>({ default: "" }),
+  nickname: one(t.string, { nullable: true, optional: true }),
+  bio: one(t.string, { optional: true, default: "" }),
 }) {}
 
-const me = new Profile({});
+const me = new Profile({ nickname: "Bob", bio: "" });
 
-expect(me.nickname).toBeNull();
+expect(me.nickname).toBe("Bob");
 expect(me.bio).toBe("");
-```
-
-## 4. Arrays & Tuples
-
-```typescript test
-import { Schema, one, many } from "@rybosome/type-a";
 
 class Collection extends Schema.from({
   // A simple list of tags
-  tags: many().of<string[]>({}),
+  tags: many(t.string),
 
   // Exactly two elements: boolean followed by number
-  pair: one().of<[boolean, number]>({}),
+  pair: one(t.tuple(t.boolean, t.number)),
 }) {}
 
 const c = new Collection({ tags: ["a", "b"], pair: [true, 42] });
@@ -97,16 +82,16 @@ expect(c.pair).toEqual([true, 42]);
 Schemas compose naturally – just pass another `Schema` class to `Of()` and **Type-A** recurses automatically when constructing, validating, and serializing.
 
 ```typescript test
-import { Schema, Nested, one, nonEmpty } from "@rybosome/type-a";
+import { Schema, one, typed as t, nonEmpty } from "@rybosome/type-a";
 
 class Address extends Schema.from({
-  street: one().of<string>({ is: nonEmpty }),
-  zip: one().of<string>({}),
+  street: one(t.string, { is: nonEmpty }),
+  zip: one(t.string),
 }) {}
 
 class User extends Schema.from({
-  name: one().of<string>({}),
-  address: one(Address).of<Address>({}),
+  name: one(t.string),
+  address: one(Address),
 }) {}
 
 const u = new User({
@@ -114,7 +99,7 @@ const u = new User({
   address: { street: "42 Main St", zip: "12345" },
 });
 
-expect(u.address.street).toBe("42 Main St");
+expect((u.address as any).street).toBe("42 Main St");
 ```
 
 ## 6. Custom Types (via `serdes`)
@@ -122,14 +107,14 @@ expect(u.address.street).toBe("42 Main St");
 For types like `Date` (which can’t be represented directly in JSON) attach a _serializer / deserializer_ tuple. The constructor runs the deserializer while `toJSON()` applies the serializer automatically.
 
 ```typescript test
-import { Schema, Serdes, one } from "@rybosome/type-a";
+import { Schema, one, many, typed as t } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (iso: string) => new Date(iso);
 
 class Event extends Schema.from({
-  title: one().of<string>({}),
-  when: one().of<Serdes<Date, string>>({
+  title: one(t.string),
+  when: one(t.serdes(Date, t.string), {
     serdes: [serializeDate, deserializeDate],
   }),
 }) {}

@@ -34,7 +34,9 @@ export interface TypedSpec<TVal, TRaw = TVal> {
     | "enum"
     | "union"
     | "variant"
-    | "serdes";
+    | "serdes"
+    | "tuple"
+    | "map";
 
   /** Phantom compile-time marker preserving `TVal`. */
   readonly __v?: TVal;
@@ -53,6 +55,17 @@ export interface TypedSpec<TVal, TRaw = TVal> {
 
   /** For `union` / `variant` specs. */
   readonly ctors?: readonly SchemaClass[];
+
+  /**
+   * For `tuple` specs – ordered list of element descriptors.
+   */
+  readonly specs?: readonly TypedSpec<any, any>[];
+
+  /**
+   * For `map` specs.
+   */
+  readonly keySpec?: TypedSpec<any, any>;
+  readonly valueSpec?: TypedSpec<any, any>;
 
   /**
    * For `variant` specs the discriminating property name used to pick the
@@ -106,22 +119,55 @@ export const t = {
     __v: undefined as unknown as bigint,
   } as TypedSpec<bigint>,
 
-  /* ----------------------------- any ------------------------------ */
+  /* ----------------------------- tuple ---------------------------- */
 
   /**
-   * Generic catch-all helper that preserves the compile-time type `T` without
-   * attaching any additional runtime semantics beyond the "primitive" kind.
-   *
-   * This is primarily used during the v3 migration to bridge features that do
-   * not yet have a dedicated runtime descriptor (tuple, Record, Map, etc.).
-   * Call-sites should migrate to a richer `t.*` helper once one becomes
-   * available.
+   * Tuple descriptor – describes a fixed-length ordered list where each
+   * position has its own `TypedSpec`.
    */
-  any<T>(): TypedSpec<T> {
+  tuple<Specs extends readonly TypedSpec<any, any>[]>(
+    ...specs: Specs
+  ): TypedSpec<
+    { [I in keyof Specs]: ValueOfSpec<Specs[I]> },
+    { [I in keyof Specs]: RawOfSpec<Specs[I]> }
+  > {
     return {
-      kind: "primitive",
-      __v: undefined as unknown as T,
-    } as TypedSpec<T>;
+      kind: "tuple",
+      specs,
+    } as TypedSpec<
+      { [I in keyof Specs]: ValueOfSpec<Specs[I]> },
+      { [I in keyof Specs]: RawOfSpec<Specs[I]> }
+    >;
+  },
+
+  /* ------------------------------ map ----------------------------- */
+
+  /**
+   * Map / Record descriptor. Accepts both plain JS objects (record) **and**
+   * `Map` instances at runtime.  Compile-time representation is a
+   * `Record<K, V>` so that callers can conveniently access properties via
+   * `obj[key]` without the indirection of `Map.get()`.
+   */
+  map<
+    KeySpec extends TypedSpec<any, any>,
+    ValueSpec extends TypedSpec<any, any>,
+  >(
+    keySpec: KeySpec,
+    valueSpec: ValueSpec,
+  ): TypedSpec<
+    | Record<ValueOfSpec<KeySpec>, ValueOfSpec<ValueSpec>>
+    | Map<ValueOfSpec<KeySpec>, ValueOfSpec<ValueSpec>>,
+    | Record<RawOfSpec<KeySpec>, RawOfSpec<ValueSpec>>
+    | Map<RawOfSpec<KeySpec>, RawOfSpec<ValueSpec>>
+  > {
+    return {
+      kind: "map",
+      keySpec,
+      valueSpec,
+    } as TypedSpec<
+      Record<ValueOfSpec<KeySpec>, ValueOfSpec<ValueSpec>>,
+      Record<RawOfSpec<KeySpec>, RawOfSpec<ValueSpec>>
+    >;
   },
 
   /* ----------------------------- literal --------------------------- */
