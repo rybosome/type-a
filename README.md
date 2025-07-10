@@ -25,9 +25,8 @@ import {
   Maybe,
   Schema,
   one,
+  constraints as c,
   typed as t,
-  atLeast,
-  aUUID,
 } from "@rybosome/type-a";
 
 //
@@ -35,8 +34,8 @@ import {
 //
 
 class User extends Schema.from({
-  id: one(t.string, { is: aUUID }),
-  age: one(t.number, { is: atLeast(0) }),
+  id: one(t.string, { is: c.aUUID }),
+  age: one(t.number, { is: c.atLeast(0) }),
 }) {
   greet() {
     return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { constraints, aUUID, atLeast } from "@rybosome/type-a";
+import * as typeA from "@rybosome/type-a";
+
+const { constraints } = typeA;
 
 // The constraint helpers should be accessible both via the namespace and as
 // individual named exports (for backwards-compatibility).
@@ -10,8 +12,8 @@ describe("constraints namespace", () => {
     expect(typeof constraints.atLeast).toBe("function");
   });
 
-  it("references are identical to individual exports", () => {
-    expect(constraints.aUUID).toBe(aUUID);
-    expect(constraints.atLeast).toBe(atLeast);
+  it("matches individual named exports for backwards-compat", () => {
+    expect(constraints.aUUID).toBe(typeA.aUUID);
+    expect(constraints.atLeast).toBe(typeA.atLeast);
   });
 });
