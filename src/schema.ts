@@ -38,6 +38,19 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
 };
 
 /**
+ * Convert an Array or Set to a plain array for uniform iteration semantics.
+ * Returns `null` when the supplied value is neither.
+ *
+ * This helper centralises runtime collection detection so that callers avoid
+ * duplicating the `Array.isArray` vs `instanceof Set` branching logic.
+ */
+function asIterable(v: unknown): unknown[] | null {
+  if (Array.isArray(v)) return v;
+  if (v instanceof Set) return Array.from(v);
+  return null;
+}
+
+/**
  * Combine several constraints into one.  Runs each in sequence and returns the
  * first non-`true` result (an error string) or `true` when all pass.
  */
@@ -356,12 +369,9 @@ export class Schema<F extends Fields> implements SchemaInstance {
           for (const msg of nestedErrors) errors.push(`${prefix}.${msg}`);
         };
 
-        const isSetValue = (field.value as any) instanceof Set;
-        if (Array.isArray(field.value) || isSetValue) {
-          const iterable: unknown[] = Array.isArray(field.value)
-            ? (field.value as unknown[])
-            : Array.from(field.value as any as Set<unknown>);
+        const iterable = asIterable(field.value);
 
+        if (iterable) {
           iterable.forEach((item: unknown, idx: number) => {
             if ((item as any)?.__isSchemaInstance) {
               pushNestedErrors(item as Schema<any>, `${key}[${idx}]`);
@@ -377,12 +387,8 @@ export class Schema<F extends Fields> implements SchemaInstance {
 
       if (is && field.value !== undefined && field.value !== null) {
         // Apply validator differently for array vs single value
-        const isSetValue2 = (field.value as any) instanceof Set;
-        if (Array.isArray(field.value) || isSetValue2) {
-          const iterable: unknown[] = Array.isArray(field.value)
-            ? (field.value as unknown[])
-            : Array.from(field.value as any as Set<unknown>);
-
+        const iterable = asIterable(field.value);
+        if (iterable) {
           iterable.forEach((item: unknown, idx: number) => {
             const res = is(item);
             if (res !== true) errors.push(`${key}[${idx}]: ${res}`);
@@ -465,12 +471,8 @@ export class Schema<F extends Fields> implements SchemaInstance {
       const raw = (() => {
         if (field.value == null) return field.value;
 
-        const isSetValue3 = (field.value as any) instanceof Set;
-        if (Array.isArray(field.value) || isSetValue3) {
-          const iterable: unknown[] = Array.isArray(field.value)
-            ? (field.value as unknown[])
-            : Array.from(field.value as any as Set<unknown>);
-
+        const iterable = asIterable(field.value);
+        if (iterable) {
           return iterable.map((v: unknown) =>
             (v as any)?.__isSchemaInstance ? (v as Schema<any>).toJSON() : v,
           );
