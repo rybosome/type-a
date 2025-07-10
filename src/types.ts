@@ -105,6 +105,32 @@ export type ErrLog<T> = {
 export type Maybe<T> = Result<T, ErrLog<T>>;
 
 /* ------------------------------------------------------------------ */
+/* Serialization / Deserialization                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Compile-time helper describing a pair of pure functions that convert
+ * between an *in-memory* value (`T`) and its *raw* representation (`R`).
+ *
+ *   const serdes: Serdes<Date, string> = [
+ *     d => d.toISOString(),   // serializer – in-memory → raw
+ *     s => new Date(s),       // deserializer – raw → in-memory
+ *   ];
+ *
+ * The alias is used solely at the type-level – the runtime tuple is just the
+ * two functions.  It allows us to convey both the **value** type (`T`) and
+ * the **raw** transport type (`R`) to helpers such as `one().of<Serdes<…>>()`
+ * without introducing an additional generic parameter.
+ */
+// The deserialiser parameter is intentionally left lax (`unknown`) to avoid
+// over-constraining callers – we want to permit *mismatched* serializer/
+// deserializer types in tests while still capturing the overall IO mapping.
+export type Serdes<T extends Typeable, R = T> = [
+  (val: T) => R,
+  (raw: never) => T,
+];
+
+/* ------------------------------------------------------------------ */
 /* Relationship descriptor                                            */
 /* ------------------------------------------------------------------ */
 
@@ -250,7 +276,12 @@ export interface FieldType<T extends Typeable, R = T> {
    * element is the **deserialiser** (raw -> in-memory), the second is the
    * **serialiser** (in-memory -> raw).
    */
-  serdes?: [(raw: R) => T, (val: T) => R];
+  /**
+   * Optional custom serialisation/deserialisation tuple applied to the raw
+   * value during construction and when calling `toJSON()`.  The tuple obeys
+   * the {@link Serdes} contract:  `[serialize, deserialize]`.
+   */
+  serdes?: Serdes<T, R>;
 
   /**
    * Relationship descriptor produced by {@link Schema.hasOne} /
@@ -339,7 +370,11 @@ export type InputType<F> = F extends { schemaClass: infer S }
           : InputOf<Arr[number]>
         : InputOf<Arr[number]>
       : never
-    : ValueType<F>;
+    : F extends FieldType<infer V2, infer R>
+      ? V2 extends never
+        ? never
+        : R
+      : ValueType<F>;
 
 export type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;

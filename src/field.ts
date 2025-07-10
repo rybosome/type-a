@@ -5,6 +5,7 @@ import type {
   Nested,
   SchemaClass,
   Typeable,
+  Serdes,
 } from "@src/types";
 
 /**
@@ -21,10 +22,9 @@ export interface FieldOpts<T extends Typeable, R = T> {
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 
   /**
-   * Custom serialisation / deserialisation tuple.
-   * `[raw -> in-memory, in-memory -> raw]`
+   * Custom serialisation/deserialisation tuple.  See {@link Serdes}.
    */
-  serdes?: [(raw: R) => T, (val: T) => R] | [(val: T) => R, (raw: R) => T];
+  serdes?: Serdes<T, R>;
 
   /**
    * Explicit discriminated-union support. When provided **Type-A** will pick the
@@ -71,26 +71,64 @@ import type { FieldWithDefault, FieldWithoutDefault } from "@src/types";
  * conflicting property types (`never` vs `T`) collapse to `never`, breaking
  * overload resolution.
  */
-type WithoutDefault<T extends Typeable> = Omit<FieldOpts<T>, "default">;
+
+/* -------------------------------------------------------------------------- */
+/* Helper type utilities                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Extract the *in-memory* value type from a `one().of` generic spec.
+ *
+ *   ValueOfSpec<string>                     -> string
+ *   ValueOfSpec<Serdes<Date, string>>       -> Date
+ */
+type ValueOfSpec<S> = S extends Serdes<infer V, any> ? V : S;
+
+/**
+ * Extract the *raw* (serialised) representation type from the same spec.
+ * When the spec is not a {@link Serdes} tuple the type defaults to the value
+ * type so nothing changes compared to the legacy behaviour.
+ */
+type RawOfSpec<S> = S extends Serdes<any, infer R> ? R : S;
+
+/**
+ * Variant of {@link WithoutDefault} that operates on a *spec* type (either a
+ * plain Typeable or a `Serdes<…>` tuple).
+ */
+type WithoutDefaultSpec<S> = Omit<
+  FieldOpts<
+    ValueOfSpec<S> extends Typeable ? ValueOfSpec<S> : never,
+    RawOfSpec<S>
+  >,
+  "default"
+>;
 
 interface OneNoSchemaBuilder {
   /** Overload: `default` supplied → returns `FieldWithDefault` */
-  of<T extends Typeable>(
-    opts: FieldOpts<T> & { default: T | (() => T) },
-  ): FieldWithDefault<T>;
+  of<Spec extends Typeable | Serdes<any, any>>(
+    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
+    },
+  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
+
   /** Overload: no `default` supplied → returns `FieldWithoutDefault` */
-  of<T extends Typeable>(opts: WithoutDefault<T>): FieldWithoutDefault<T>;
+  of<Spec extends Typeable | Serdes<any, any>>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
 }
 
 interface OneWithSchemaBuilder<S extends SchemaClass> {
-  of<T extends Nested<S>>(
-    opts: FieldOpts<T> & { default: T | (() => T) },
-  ): FieldWithDefault<T> & { schemaClass: S };
-  of<T extends Nested<S>>(
-    opts: WithoutDefault<T>,
-  ):
-    | (FieldWithoutDefault<T> & { schemaClass: S })
-    | (FieldType<T> & { schemaClass: S });
+  of<Spec extends Nested<S> | Serdes<any, any>>(
+    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
+    },
+  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & { schemaClass: S };
+
+  of<Spec extends Nested<S> | Serdes<any, any>>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+    schemaClass: S;
+  };
 }
 
 export function one(): OneNoSchemaBuilder;
@@ -110,19 +148,29 @@ export function one(schemaClass?: SchemaClass): any {
 /* -------------------------------------------------------------------------- */
 
 interface ManyNoSchemaBuilder {
-  of<T extends Typeable[]>(
-    opts: FieldOpts<T> & { default: T | (() => T) },
-  ): FieldWithDefault<T>;
-  of<T extends Typeable[]>(opts: WithoutDefault<T>): FieldWithoutDefault<T>;
+  of<Spec extends (Typeable | Serdes<any, any>)[]>(
+    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
+    },
+  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
+
+  of<Spec extends (Typeable | Serdes<any, any>)[]>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
 }
 
 interface ManyWithSchemaBuilder<S extends SchemaClass> {
-  of<T extends Nested<S>[]>(
-    opts: FieldOpts<T> & { default: T | (() => T) },
-  ): FieldWithDefault<T> & { schemaClass: S };
-  of<T extends Nested<S>[]>(
-    opts: WithoutDefault<T>,
-  ): FieldWithoutDefault<T> & { schemaClass: S };
+  of<Spec extends (Nested<S> | Serdes<any, any>)[]>(
+    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
+    },
+  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & { schemaClass: S };
+
+  of<Spec extends (Nested<S> | Serdes<any, any>)[]>(
+    opts: WithoutDefaultSpec<Spec>,
+  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
+    schemaClass: S;
+  };
 }
 
 export function many(): ManyNoSchemaBuilder;
