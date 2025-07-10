@@ -21,15 +21,22 @@ A minimal, class-first validation library for TypeScript — inspired by Python�
 ## 🚀 Quick Start
 
 ```typescript
-import { Maybe, Of, Schema, atLeast, aUUID } from "@rybosome/type-a";
+import {
+  Maybe,
+  Schema,
+  one,
+  typed as t,
+  atLeast,
+  aUUID,
+} from "@rybosome/type-a";
 
 //
 // Define a schema expressing typing and input shape expectations
 //
 
 class User extends Schema.from({
-  id: Of<string>({ is: aUUID }),
-  age: Of<number>({ is: atLeast(0) }),
+  id: one(t.string, { is: aUUID }),
+  age: one(t.number, { is: atLeast(0) }),
 }) {
   greet() {
     return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;
