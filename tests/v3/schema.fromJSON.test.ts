@@ -8,13 +8,12 @@ import { Schema } from "@src/schema";
 import { one } from "@src/field";
 import { t } from "@src/typed";
 
-import { nonEmpty } from "../../src/constraints/string";
-import { atLeast } from "../../src/constraints/numeric";
+import { constraints as c } from "@src/index";
 
 // Minimal schema with two constrained fields
 const User = Schema.from({
-  name: one(t.string, { is: nonEmpty }),
-  age: one(t.number, { is: atLeast(18) }),
+  name: one(t.string, { is: c.nonEmpty }),
+  age: one(t.number, { is: c.atLeast(18) }),
 });
 
 describe("Schema.fromJSON (v3)", () => {

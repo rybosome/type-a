@@ -7,14 +7,14 @@ This page demonstrates the six major type categories that **Type-A** supports ou
 The simplest use-case is validating JavaScript’s primitive types. The `is` option accepts one or more _constraints_ that must return `true` for valid values (or an error string otherwise).
 
 ```typescript test
-import { Schema, one, typed as t, nonEmpty, atLeast } from "@rybosome/type-a";
+import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
 class Person extends Schema.from({
   // A non-empty string
-  name: one(t.string, { is: nonEmpty }),
+  name: one(t.string, { is: c.nonEmpty }),
 
   // A number that must be ≥ 18
-  age: one(t.number, { is: atLeast(18) }),
+  age: one(t.number, { is: c.atLeast(18) }),
 }) {}
 
 const p = new Person({ name: "Alice", age: 30 });
@@ -82,10 +82,10 @@ expect(c.pair).toEqual([true, 42]);
 Schemas compose naturally – just pass another `Schema` class to `Of()` and **Type-A** recurses automatically when constructing, validating, and serializing.
 
 ```typescript test
-import { Schema, one, typed as t, nonEmpty } from "@rybosome/type-a";
+import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
 class Address extends Schema.from({
-  street: one(t.string, { is: nonEmpty }),
+  street: one(t.string, { is: c.nonEmpty }),
   zip: one(t.string),
 }) {}
 
