@@ -13,25 +13,28 @@ import type {
 } from "@src/types";
 
 /* ------------------------------------------------------------------ */
-/* Default primitive validators                                        */
+/* Built-in primitive validators                                      */
 /* ------------------------------------------------------------------ */
 
 /**
- * Built-in primitive validators automatically applied to any field that has
- * **no** nested `schemaClass` / `variantClasses` **and** no user-supplied
- * `is` predicate.  The table keys are raw JavaScript `typeof` strings or
- * special sentinels for complex objects (`array`, `date`, `object`).
+ * Minimal set of default validators applied when a field lacks a custom
+ * {@link FieldType.is} predicate *and* is not bound to a nested
+ * {@link Schema} or discriminated union.  They provide the basic runtime
+ * guarantees historically offered by *type-a* without forcing callers to
+ * repeat common `typeof` checks.
  */
 const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
-  boolean: (v: unknown) => typeof v === "boolean" || "expected boolean", // primitive boolean
+  boolean: (v: unknown) => (typeof v === "boolean" ? true : "expected boolean"),
   number: (v: unknown) =>
-    (typeof v === "number" && Number.isFinite(v)) || "expected finite number",
-  string: (v: unknown) => typeof v === "string" || "expected string",
-  // bigint & date left out for now – user may supply custom validators
-  array: (v: unknown) => Array.isArray(v) || "expected array",
+    typeof v === "number" && Number.isFinite(v)
+      ? true
+      : "expected finite number",
+  string: (v: unknown) => (typeof v === "string" ? true : "expected string"),
+  array: (v: unknown) => (Array.isArray(v) ? true : "expected array"),
   object: (v: unknown) =>
-    (v !== null && typeof v === "object" && !Array.isArray(v)) ||
-    "expected plain object",
+    v !== null && typeof v === "object" && !Array.isArray(v)
+      ? true
+      : "expected plain object",
 };
 
 /**
@@ -218,20 +221,21 @@ export class Schema<F extends Fields> implements SchemaInstance {
           /* ---------------------------------------------------- */
 
           if (!fieldDef.schemaClass && !fieldDef.variantClasses) {
-            const pick = (val: unknown): LogicalConstraint<any> | undefined => {
-              const t = typeof val;
-              if (t === "object") {
-                // date validator not yet built-in
-                if (Array.isArray(val)) return DEFAULT_VALIDATORS.array;
-                return DEFAULT_VALIDATORS.object;
-              }
-              return (
-                DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
-              )[t];
-            };
+            const runtimeKey = Array.isArray(deserialised)
+              ? "array"
+              : typeof deserialised;
+            const validator = (
+              DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
+            )[runtimeKey];
 
-            // Determine based on *runtime value* (after deserialisation) or default sentinel "undefined".
-            const validator = pick(deserialised);
+            // Cache the derived validator on the *shared* field definition so
+            // future instances of the same Schema reuse the correct predicate
+            // (crucial when the first construction succeeds but later ones
+            // provide invalid values).
+            if (validator && !(fieldDef as any).is) {
+              (fieldDef as any).is = validator;
+            }
+
             return validator;
           }
 
@@ -301,14 +305,25 @@ export class Schema<F extends Fields> implements SchemaInstance {
       return acc;
     }, {} as ErrLog<I>);
 
-    // populate messages parsed from "<key>: <message>" strings
+    // Populate messages parsed from "<key>: <message>" strings.  For built-in
+    // *primitive* validators we intentionally keep the full string (including
+    // the field prefix) so callers can display a self-contained message
+    // without additional context.  Custom validators, however, usually return
+    // messages that already omit the field name (e.g. "must not be empty").
+    // Detect this by checking for the standard "expected …" prefix.
+
     for (const raw of validationErrors) {
       const idx = raw.indexOf(": ");
-      if (idx !== -1) {
-        const key = raw.slice(0, idx);
-        const msg = raw.slice(idx + 2);
-        (errLog as Record<string, string | undefined>)[key] = msg;
-      }
+      if (idx === -1) continue;
+
+      const key = raw.slice(0, idx);
+      const msg = raw.slice(idx + 2);
+
+      (errLog as Record<string, string | undefined>)[key] = msg.startsWith(
+        "expected ",
+      )
+        ? raw // keep full string for primitive-type errors
+        : msg; // otherwise strip the "<key>: " prefix
     }
 
     errLog.summarize = () => validationErrors.slice();
