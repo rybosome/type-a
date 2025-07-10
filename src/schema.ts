@@ -34,10 +34,6 @@ const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
     "expected plain object",
 };
 
-// ------------------------------------------------------------------
-// Schema (implementation continues below)
-// --------------------
-
 /**
  * Combine several constraints into one.  Runs each in sequence and returns the
  * first non-`true` result (an error string) or `true` when all pass.
