@@ -21,13 +21,34 @@ import type {
 
 import type { FieldOpts as LegacyFieldOpts } from "@src/field";
 
+// ---------------------------------------------------------------------------
+// Extended v3-specific FieldOpts additions
+// ---------------------------------------------------------------------------
+
+/**
+ * Extra options introduced by the API v3 runtime descriptor migration.  These
+ * keys are *not* present in the legacy builder but are harmlessly ignored by
+ * existing call-sites because we intersect them onto the previous type.
+ */
+interface FieldExtras {
+  /** Marks the field as optional (omitting it in the constructor is allowed). */
+  optional?: boolean;
+
+  /** When `true`, the field accepts `null` in addition to its regular type. */
+  nullable?: boolean;
+
+  /** Human-readable description forwarded to JSON-Schema `description`. */
+  described?: string;
+}
+
 import type { RawOfSpec, TypedSpec, ValueOfSpec } from "./typed.js";
 
 // ---------------------------------------------------------------------------
 // FieldOpts — identical to the v2 version, re-exported for convenience.
 // ---------------------------------------------------------------------------
 
-export type FieldOpts<T extends Typeable, R = T> = LegacyFieldOpts<T, R>;
+export type FieldOpts<T extends Typeable, R = T> = LegacyFieldOpts<T, R> &
+  FieldExtras;
 
 // ---------------------------------------------------------------------------
 // Helper type utilities for SchemaClass specs.
@@ -68,6 +89,14 @@ function makeField<S extends SchemaClass | TypedSpec<any, any>>(
   if (opts.is) (field as any).is = opts.is;
   if (opts.serdes) (field as any).serdes = opts.serdes;
 
+  /* --------------------------------------------------------------- */
+  /* v3-specific extras                                              */
+  /* --------------------------------------------------------------- */
+
+  if (opts.optional) (field as any).optional = true;
+  if (opts.nullable) (field as any).nullable = true;
+  if (opts.described) (field as any).description = opts.described;
+
   // Nested schema handling — if the *spec* is a SchemaClass attach it so that
   // the constructor can rehydrate later on (implemented in Phase C).
   if (typeof spec === "function") {
@@ -85,7 +114,9 @@ export function one<S extends SchemaClass | TypedSpec<any, any>>(
   spec: S,
   opts: FieldOpts<ValueOf<S>, RawOf<S>> = {},
 ): FieldType<ValueOf<S>, RawOf<S>> & { spec: S } {
-  return makeField(spec, opts);
+  const field = makeField(spec, opts);
+  (field as any).cardinality = "one";
+  return field;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,8 +130,10 @@ export function many<S extends SchemaClass | TypedSpec<any, any>>(
   // Cast `opts` through `unknown` to bypass the mismatch between the single-
   // value signature expected by `makeField()` and the array-wrapped variant we
   // expose here.  Properly specialised helpers will land in a later phase.
-  return makeField(
+  const field = makeField(
     spec,
     opts as unknown as FieldOpts<ValueOf<S>, RawOf<S>>,
   ) as FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & { spec: S };
+  (field as any).cardinality = "many";
+  return field;
 }
