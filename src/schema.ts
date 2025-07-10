@@ -12,6 +12,31 @@ import type {
   Fields,
 } from "@src/types";
 
+/* ------------------------------------------------------------------ */
+/* Built-in primitive validators                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Minimal set of default validators applied when a field lacks a custom
+ * {@link FieldType.is} predicate *and* is not bound to a nested
+ * {@link Schema} or discriminated union.  They provide the basic runtime
+ * guarantees historically offered by *type-a* without forcing callers to
+ * repeat common `typeof` checks.
+ */
+const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
+  boolean: (v: unknown) => (typeof v === "boolean" ? true : "expected boolean"),
+  number: (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v)
+      ? true
+      : "expected finite number",
+  string: (v: unknown) => (typeof v === "string" ? true : "expected string"),
+  array: (v: unknown) => (Array.isArray(v) ? true : "expected array"),
+  object: (v: unknown) =>
+    v !== null && typeof v === "object" && !Array.isArray(v)
+      ? true
+      : "expected plain object",
+};
+
 // ------------------------------------------------------------------
 // Schema (implementation continues below)
 // --------------------
@@ -195,6 +220,29 @@ export class Schema<F extends Fields> implements SchemaInstance {
           }
           if (rawIs) return rawIs;
 
+          /* ---------------------------------------------------- */
+          /* Fallback to built-in primitive validators            */
+          /* ---------------------------------------------------- */
+
+          if (!fieldDef.schemaClass && !fieldDef.variantClasses) {
+            const runtimeKey = Array.isArray(deserialised)
+              ? "array"
+              : typeof deserialised;
+            const validator = (
+              DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
+            )[runtimeKey];
+
+            // Cache the derived validator on the *shared* field definition so
+            // future instances of the same Schema reuse the correct predicate
+            // (crucial when the first construction succeeds but later ones
+            // provide invalid values).
+            if (validator && !(fieldDef as any).is) {
+              (fieldDef as any).is = validator;
+            }
+
+            return validator;
+          }
+
           return undefined;
         })(),
         default: fieldDef.default as FieldType<
@@ -261,14 +309,25 @@ export class Schema<F extends Fields> implements SchemaInstance {
       return acc;
     }, {} as ErrLog<I>);
 
-    // populate messages parsed from "<key>: <message>" strings
+    // Populate messages parsed from "<key>: <message>" strings.  For built-in
+    // *primitive* validators we intentionally keep the full string (including
+    // the field prefix) so callers can display a self-contained message
+    // without additional context.  Custom validators, however, usually return
+    // messages that already omit the field name (e.g. "must not be empty").
+    // Detect this by checking for the standard "expected …" prefix.
+
     for (const raw of validationErrors) {
       const idx = raw.indexOf(": ");
-      if (idx !== -1) {
-        const key = raw.slice(0, idx);
-        const msg = raw.slice(idx + 2);
-        (errLog as Record<string, string | undefined>)[key] = msg;
-      }
+      if (idx === -1) continue;
+
+      const key = raw.slice(0, idx);
+      const msg = raw.slice(idx + 2);
+
+      (errLog as Record<string, string | undefined>)[key] = msg.startsWith(
+        "expected ",
+      )
+        ? raw // keep full string for primitive-type errors
+        : msg; // otherwise strip the "<key>: " prefix
     }
 
     errLog.summarize = () => validationErrors.slice();
