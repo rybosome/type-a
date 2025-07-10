@@ -288,7 +288,9 @@ export type InputType<F> = F extends { schemaClass: infer S }
     ? F extends FieldType<infer V>
       ? V extends any[]
         ? InputOf<S>[]
-        : InputOf<S>
+        : V extends Set<any>
+          ? Set<InputOf<S>>
+          : InputOf<S>
       : never
     : never
   : F extends { variantClasses: infer Arr }
@@ -296,7 +298,9 @@ export type InputType<F> = F extends { schemaClass: infer S }
       ? F extends FieldType<infer V>
         ? V extends any[]
           ? InputOf<Arr[number]>[]
-          : InputOf<Arr[number]>
+          : V extends Set<any>
+            ? Set<InputOf<Arr[number]>>
+            : InputOf<Arr[number]>
         : InputOf<Arr[number]>
       : never
     : F extends FieldType<infer V2, infer R>
