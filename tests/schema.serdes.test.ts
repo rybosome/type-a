@@ -36,7 +36,7 @@ describe("Schema property custom (de)serialisers", () => {
 
   // Intentionally mismatched serializer/deserializer types – should NOT type-check
   // @ts-expect-error – Wrong serdes types
-  void one().of<Serdes<Date, number>>({
-    serdes: [(_: Date) => 123, (s: string) => new Date(s)],
-  });
+  // prettier-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void one().of<Serdes<Date, number>>({ serdes: [(_: Date) => 123, (s: string) => new Date(s)] });
 });
