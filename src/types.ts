@@ -109,25 +109,23 @@ export type Maybe<T> = Result<T, ErrLog<T>>;
 /* ------------------------------------------------------------------ */
 
 /**
- * Compile-time helper describing a pair of pure functions that convert
- * between an *in-memory* value (`T`) and its *raw* representation (`R`).
+ * Compile-time alias representing a pair of pure functions that convert
+ * between an *in-memory* value (`T`) and its *raw* serialised form (`R`).
  *
- *   const serdes: Serdes<Date, string> = [
- *     d => d.toISOString(),   // serializer – in-memory → raw
- *     s => new Date(s),       // deserializer – raw → in-memory
- *   ];
+ * The tuple order is **[serialize, deserialize]**:
  *
- * The alias is used solely at the type-level – the runtime tuple is just the
- * two functions.  It allows us to convey both the **value** type (`T`) and
- * the **raw** transport type (`R`) to helpers such as `one().of<Serdes<…>>()`
- * without introducing an additional generic parameter.
+ * ```ts
+ * const isoSerdes: Serdes<Date, string> = [
+ *   date => date.toISOString(), // Date → string
+ *   iso  => new Date(iso),      // string → Date
+ * ];
+ * ```
  */
-// The deserialiser parameter is intentionally left lax (`unknown`) to avoid
-// over-constraining callers – we want to permit *mismatched* serializer/
-// deserializer types in tests while still capturing the overall IO mapping.
 export type Serdes<T extends Typeable, R = T> = [
+  /** serializer – in-memory → raw */
   (val: T) => R,
-  (raw: never) => T,
+  /** deserializer – raw → in-memory */
+  (raw: R) => T,
 ];
 
 /* ------------------------------------------------------------------ */
