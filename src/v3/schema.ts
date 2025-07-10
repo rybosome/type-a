@@ -115,6 +115,37 @@ function validateValueAgainstSpec(
       // Validate *raw* value against the rawSpec (always primitive/enum/literal)
       return validateValueAgainstSpec(value, spec.rawSpec!);
     }
+
+    case "tuple": {
+      if (!Array.isArray(value)) return "expected array (tuple)";
+      if (value.length !== (spec.specs?.length ?? 0))
+        return `expected tuple length ${spec.specs?.length ?? 0}`;
+      for (let i = 0; i < (spec.specs?.length ?? 0); i += 1) {
+        const r = validateValueAgainstSpec(value[i], spec.specs![i]);
+        if (r !== true) return `tuple[${i}]: ${r}`;
+      }
+      return true;
+    }
+
+    case "map": {
+      const entries = (() => {
+        if (value instanceof Map) return Array.from(value.entries());
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          return Object.entries(value as Record<string, unknown>);
+        }
+        return null;
+      })() as [unknown, unknown][] | null;
+
+      if (!entries) return "expected map or object";
+
+      for (const [k, v] of entries) {
+        const kr = validateValueAgainstSpec(k, spec.keySpec!);
+        if (kr !== true) return `key ${String(k)}: ${kr}`;
+        const vr = validateValueAgainstSpec(v, spec.valueSpec!);
+        if (vr !== true) return `value for ${String(k)}: ${vr}`;
+      }
+      return true;
+    }
     case "union":
     case "variant": {
       // For raw value validation we simply ensure the value is an object; the
@@ -337,8 +368,8 @@ export class Schema<F extends Fields> implements SchemaInstance {
         | TypedSpec<any>
         | SchemaClass
         | undefined;
-      const val = field.value;
 
+      const val = field.value;
       // Optional / nullable short-circuit
       const isOptional = (field as any).optional;
       const isNullable = (field as any).nullable;
@@ -371,6 +402,40 @@ export class Schema<F extends Fields> implements SchemaInstance {
           }
         }
       };
+
+      // ------------------------------------------------------------------
+      // Tuple / Map short-circuit – treat entire value as scalar for the
+      // purpose of per-field validation (do NOT iterate over elements).
+      // ------------------------------------------------------------------
+
+      // (duplicate `val` definition removed)
+
+      if (
+        spec &&
+        typeof spec === "object" &&
+        (spec.kind === "tuple" || spec.kind === "map")
+      ) {
+        const r = validateValueAgainstSpec(val, spec as TypedSpec<any>);
+        if (r !== true) errors.push(`${String(key)}: ${r}`);
+
+        runValidators(val, String(key));
+
+        if (spec.kind === "tuple" && Array.isArray(val)) {
+          (val as unknown[]).forEach((item, idx) =>
+            recurseNested(item, `${String(key)}[${idx}]`),
+          );
+        }
+        if (spec.kind === "map") {
+          const entriesVals: unknown[] =
+            (val as any) instanceof Map
+              ? Array.from((val as Map<unknown, unknown>).values())
+              : typeof val === "object" && val !== null
+                ? Object.values(val as Record<string, unknown>)
+                : [];
+          entriesVals.forEach((v) => recurseNested(v, String(key)));
+        }
+        continue; // skip the rest of the loop for this field
+      }
 
       const iterable = asIterable(val);
       if (iterable) {
@@ -582,6 +647,23 @@ export class Schema<F extends Fields> implements SchemaInstance {
                 (spec.discriminator?.propertyName as string) ?? "kind",
             },
           };
+        }
+
+        case "tuple": {
+          return {
+            type: "array",
+            items: spec.specs!.map((s) => specToSchema(s)),
+            minItems: spec.specs!.length,
+            maxItems: spec.specs!.length,
+          } as Record<string, unknown>;
+        }
+
+        case "map": {
+          return {
+            type: "object",
+            additionalProperties: specToSchema(spec.valueSpec!),
+            propertyNames: specToSchema(spec.keySpec!),
+          } as Record<string, unknown>;
         }
         default:
           return {};
