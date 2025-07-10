@@ -14,8 +14,7 @@ describe("Schema – strict primitive validation", () => {
   });
 
   it("rejects incorrect primitive types", () => {
-    // @ts-expect-error: intentionally bad input for runtime test
-    const f = Flags.tryNew({ active: 1, score: "bad" });
+    const f = Flags.fromJSON({ active: 1, score: "bad" });
     const errs = f.errs!;
     expect(errs.active).toBe("active: expected boolean");
     expect(errs.score).toBe("score: expected finite number");

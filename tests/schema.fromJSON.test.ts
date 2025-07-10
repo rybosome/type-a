@@ -1,5 +1,5 @@
 /**
- * Tests the static `tryNew` schema class creation method.
+ * Tests the static `fromJSON` schema class construction helper.
  */
 
 import { describe, it, expect } from "vitest";
@@ -11,9 +11,9 @@ const User = Schema.from({
   age: one().of<number>({ is: atLeast(18) }),
 });
 
-describe("Schema.tryNew", () => {
+describe("Schema.fromJSON", () => {
   it("returns `val` on success and `errs` undefined", () => {
-    const res = User.tryNew({ name: "Alice", age: 30 });
+    const res = User.fromJSON({ name: "Alice", age: 30 });
 
     // success shape
     expect(res.val).toBeDefined();
@@ -29,7 +29,7 @@ describe("Schema.tryNew", () => {
   });
 
   it("returns `errs` on failure and `val` undefined", () => {
-    const res = User.tryNew({ name: "", age: 10 });
+    const res = User.fromJSON({ name: "", age: 10 });
 
     // failure shape
     expect(res.val).toBeUndefined();
