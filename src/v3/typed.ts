@@ -80,11 +80,21 @@ export type RawOfSpec<S> = S extends TypedSpec<any, infer R> ? R : never;
 export const t = {
   /* -------------------------- primitives --------------------------- */
 
-  string: { kind: "primitive", __v: "" as string } as TypedSpec<string>,
+  string: {
+    kind: "primitive",
+    // Use an `undefined` phantom marker to avoid enumerable runtime values.
+    __v: undefined as unknown as string,
+  } as TypedSpec<string>,
 
-  number: { kind: "primitive", __v: 0 as number } as TypedSpec<number>,
+  number: {
+    kind: "primitive",
+    __v: undefined as unknown as number,
+  } as TypedSpec<number>,
 
-  boolean: { kind: "primitive", __v: true as boolean } as TypedSpec<boolean>,
+  boolean: {
+    kind: "primitive",
+    __v: undefined as unknown as boolean,
+  } as TypedSpec<boolean>,
 
   /* ----------------------------- literal --------------------------- */
 
