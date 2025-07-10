@@ -128,25 +128,6 @@ export type Serdes<T extends Typeable, R = T> = [
   (raw: R) => T,
 ];
 
-/* ------------------------------------------------------------------ */
-/* Variant                                                             */
-/* ------------------------------------------------------------------ */
-
-/**
- * Utility helper that converts a list/tuple of {@link Schema} classes into a
- * union of their **constructed** (output) value types.  Intended for use with
- * {@link Schema.Of} when building explicit discriminated unions:
- *
- * Internally this is merely an alias over `OutputOf<…>` – no additional runtime
- * behaviour is attached.  Validation, serialisation, and re-hydration are
- * handled by the {@link Schema} logic once the corresponding `schemaClasses`
- * array is supplied to `Of()`.
- */
-
-export type Variant<
-  Classes extends readonly { new (input: any): SchemaInstance }[],
-> = OutputOf<Classes[number]>;
-
 /**
  * Helper aliases used by the `Of<T>` overloads below.  They enforce whether
  * the caller supplied a `default` as well as whether a `[serializer,
