@@ -12,28 +12,6 @@ import type {
   Fields,
 } from "@src/types";
 
-/* ------------------------------------------------------------------ */
-/* Default primitive validators                                        */
-/* ------------------------------------------------------------------ */
-
-/**
- * Built-in primitive validators automatically applied to any field that has
- * **no** nested `schemaClass` / `variantClasses` **and** no user-supplied
- * `is` predicate.  The table keys are raw JavaScript `typeof` strings or
- * special sentinels for complex objects (`array`, `date`, `object`).
- */
-const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
-  boolean: (v: unknown) => typeof v === "boolean" || "expected boolean", // primitive boolean
-  number: (v: unknown) =>
-    (typeof v === "number" && Number.isFinite(v)) || "expected finite number",
-  string: (v: unknown) => typeof v === "string" || "expected string",
-  // bigint & date left out for now – user may supply custom validators
-  array: (v: unknown) => Array.isArray(v) || "expected array",
-  object: (v: unknown) =>
-    (v !== null && typeof v === "object" && !Array.isArray(v)) ||
-    "expected plain object",
-};
-
 // ------------------------------------------------------------------
 // Schema (implementation continues below)
 // --------------------
@@ -216,28 +194,6 @@ export class Schema<F extends Fields> implements SchemaInstance {
             return rawIs.length > 0 ? composeConstraints(rawIs) : undefined;
           }
           if (rawIs) return rawIs;
-
-          /* ---------------------------------------------------- */
-          /* Fallback to built-in primitive validators            */
-          /* ---------------------------------------------------- */
-
-          if (!fieldDef.schemaClass && !fieldDef.variantClasses) {
-            const pick = (val: unknown): LogicalConstraint<any> | undefined => {
-              const t = typeof val;
-              if (t === "object") {
-                // date validator not yet built-in
-                if (Array.isArray(val)) return DEFAULT_VALIDATORS.array;
-                return DEFAULT_VALIDATORS.object;
-              }
-              return (
-                DEFAULT_VALIDATORS as Record<string, LogicalConstraint<any>>
-              )[t];
-            };
-
-            // Determine based on *runtime value* (after deserialisation) or default sentinel "undefined".
-            const validator = pick(deserialised);
-            return validator;
-          }
 
           return undefined;
         })(),
