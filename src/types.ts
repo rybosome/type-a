@@ -105,6 +105,30 @@ export type ErrLog<T> = {
 export type Maybe<T> = Result<T, ErrLog<T>>;
 
 /* ------------------------------------------------------------------ */
+/* Serialization / Deserialization                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Compile-time alias representing a pair of pure functions that convert
+ * between an *in-memory* value (`T`) and its *raw* serialised form (`R`).
+ *
+ * The tuple order is **[serialize, deserialize]**:
+ *
+ * ```ts
+ * const isoSerdes: Serdes<Date, string> = [
+ *   date => date.toISOString(), // Date → string
+ *   iso  => new Date(iso),      // string → Date
+ * ];
+ * ```
+ */
+export type Serdes<T extends Typeable, R = T> = [
+  /** serializer – in-memory → raw */
+  (val: T) => R,
+  /** deserializer – raw → in-memory */
+  (raw: R) => T,
+];
+
+/* ------------------------------------------------------------------ */
 /* Relationship descriptor                                            */
 /* ------------------------------------------------------------------ */
 
@@ -246,11 +270,10 @@ export interface FieldType<T extends Typeable, R = T> {
 
   /**
    * Optional custom serialisation/deserialisation tuple applied to the raw
-   * value during `Schema` construction and when calling `toJSON()`.  The first
-   * element is the **deserialiser** (raw -> in-memory), the second is the
-   * **serialiser** (in-memory -> raw).
+   * value during construction and when calling `toJSON()`.  The tuple obeys
+   * the {@link Serdes} contract:  `[serialize, deserialize]`.
    */
-  serdes?: [(raw: R) => T, (val: T) => R];
+  serdes?: Serdes<T, R>;
 
   /**
    * Relationship descriptor produced by {@link Schema.hasOne} /
@@ -339,7 +362,11 @@ export type InputType<F> = F extends { schemaClass: infer S }
           : InputOf<Arr[number]>
         : InputOf<Arr[number]>
       : never
-    : ValueType<F>;
+    : F extends FieldType<infer V2, infer R>
+      ? V2 extends never
+        ? never
+        : R
+      : ValueType<F>;
 
 export type InputValueMap<F extends Fields> = {
   [K in RequiredKeys<F>]: InputType<F[K]>;
