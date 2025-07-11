@@ -8,8 +8,6 @@
 
 A minimal, class-first schema library with lightweight reflection for TypeScript.
 
-**📚 Documentation**: <https://rybosome.github.io/type-a/>
-
 ```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
@@ -67,6 +65,9 @@ own trade-offs:
 reflection but without decorator overhead.
 
 ## Features
+
+Code blocks below are [real tests](https://github.com/rybosome/type-a/blob/main/scripts/docs-test.ts),
+executed and type-checked with CI to make sure they remain correct and valid.
 
 ### Standard class usage
 
@@ -126,11 +127,17 @@ describe("Runtime validation", () => {
     });
 
     expect(goodResult.val).toBeDefined();
+    expect(goodResult.errs).toBeUndefined();
 
     const badResult = User.fromJSON({ id: "not a UUID", age: 25 });
+    expect(badResult.val).toBeUndefined();
+    expect(badResult.errs).toBeDefined();
+
     const errs = badResult.errs!;
 
-    expect(errs).toBeDefined();
+    expect(errs.id).toBe("Invalid UUID");
+    expect(errs.age).toBeUndefined();
+    expect(errs.summarize()).toEqual(["id: Invalid UUID"]);
   });
 });
 ```
@@ -141,13 +148,13 @@ describe("Runtime validation", () => {
 import { describe, it, expect } from "vitest";
 import { Schema, one, typing as t } from "@rybosome/type-a";
 
-const serializeDate = (d: Date) => d.toISOString();
-const deserializeDate = (s: string) => new Date(s);
-
 class Event extends Schema.from({
   title: one(t.string),
   when: one(t.serdes(Date, t.string), {
-    serdes: [serializeDate, deserializeDate],
+    serdes: [
+      (d: Date) => d.toISOString(), // serialize: convert from in-memory -> raw
+      (s: string) => new Date(s), // deserialize: convert from raw -> in-memory
+    ],
   }),
 }) {}
 
@@ -166,28 +173,43 @@ describe("Custom serdes", () => {
 
 ### JSON Schema generation
 
+Returns a [JSON-Schema Draft-07](https://json-schema.org/) representation of the class.
+
 ```typescript
 import { describe, it, expect } from "vitest";
-import { Schema, one, typing as t } from "@rybosome/type-a";
+import { Schema, many, one, typing as t } from "@rybosome/type-a";
 
 class Product extends Schema.from({
   name: one(t.string),
   price: one(t.number),
+  tags: many(t.string, { optional: true }),
 }) {}
 
 describe("JSON Schema generation", () => {
   it("emits draft-07 schema", () => {
-    const schema = Product.jsonSchema();
-    expect(schema).toHaveProperty("properties.price.type", "number");
+    expect(Product.jsonSchema()).toEqual({
+      properties: {
+        name: {
+          type: "string",
+        },
+        price: {
+          type: "number",
+        },
+        tags: {
+          items: {
+            type: "string",
+          },
+          type: "array",
+        },
+      },
+      required: ["name", "price"],
+      type: "object",
+    });
   });
 });
 ```
 
 ## Documentation
-
-Below are direct links to the rendered guides hosted at
-<https://rybosome.github.io/type-a/>. Browse the handbook, API reference and
-examples without leaving GitHub:
 
 ### Guides
 
