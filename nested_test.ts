@@ -1,4 +1,4 @@
-import { Schema, one, typed as t } from '@rybosome/type-a';
+import { Schema, one, typed as t } from "@rybosome/type-a";
 
 class Address extends Schema.from({
   street: one(t.string),
@@ -10,7 +10,10 @@ class User extends Schema.from({
   address: one(Address),
 }) {}
 
-const u = new User({ name: 'Bob', address: { street: '42 Main St', zip: '12345' } });
+const u = new User({
+  name: "Bob",
+  address: { street: "42 Main St", zip: "12345" },
+});
 
 // type check
 u.address.street;
