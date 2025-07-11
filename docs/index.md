@@ -1,22 +1,28 @@
-# Type-A Documentation (v3)
+# Type-A Documentation Index
 
-Welcome to the _early_ draft of the public **Type-A** documentation. These pages are being re-organized; content will be filled in during the next phases of the overhaul.
+Below is an automatically-generated table of contents for the public documentation hosted at <https://rybosome.github.io/type-a/>. All links point to the rendered site so you can browse the guides without leaving GitHub.
 
-```txt
-📌 Status
----------
-This file is a placeholder created on July 11 2025 as part of Phase 1
-of the documentation overhaul plan (issue #80).
-```
+## Guides
 
-Available sections (coming soon):
+- [Getting started](https://rybosome.github.io/type-a/getting-started/)
+- [Supported types](https://rybosome.github.io/type-a/supported_types/)
 
-- Getting Started
-- API Reference (`/api`)
-- Worked Examples (`/examples`)
+## API reference
 
-<br/>
+- [Config options](https://rybosome.github.io/type-a/api/config-options/)
+- [Constraints](https://rybosome.github.io/type-a/api/constraints/)
+- [Entrypoints](https://rybosome.github.io/type-a/api/entrypoints/)
+- [Maps](https://rybosome.github.io/type-a/api/maps/)
+- [Nested schemas](https://rybosome.github.io/type-a/api/nested-schemas/)
+- [Primitives](https://rybosome.github.io/type-a/api/primitives/)
+- [Serdes](https://rybosome.github.io/type-a/api/serdes/)
+- [Tuples, unions & variants](https://rybosome.github.io/type-a/api/tuples-unions-variants/)
 
-> **Note** Most pages are still under construction. Check back after the
-> upcoming Phase 2/3 pull requests for complete guides and runnable code
-> samples.
+## Worked examples
+
+- [Quickstart](https://rybosome.github.io/type-a/examples/quickstart/)
+- [Advanced guide](https://rybosome.github.io/type-a/examples/advanced/)
+
+---
+
+_Updated on July&nbsp;11&nbsp;2025._

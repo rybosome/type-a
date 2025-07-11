@@ -26,4 +26,4 @@ describe("Tuple and union fields", () => {
 });
 ```
 
-The `variant` helper builds on top of `union` and is covered in _nested-schemas.md_.
+The `variant` helper builds on top of `union` and is covered in [nested schemas](https://rybosome.github.io/type-a/api/nested-schemas/).
