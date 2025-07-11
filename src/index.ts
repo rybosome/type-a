@@ -14,17 +14,11 @@ import * as constraints from "./constraints";
 // Export the namespace first so it appears near the top in generated .d.ts
 export { constraints };
 
-// Existing individual constraint exports (unchanged)
-export * from "./constraints";
-
 // Core runtime constructs
 export * from "./schema";
 export * from "./field";
 export * from "./types";
 
-// Conditional helpers
-export * from "./conditionals/utils";
-
-// v3 runtime descriptor helpers — expose both modern (`typing`) and legacy
+// runtime descriptor helpers — expose both modern (`typing`) and legacy
 // (`typed`) aliases for the `t` runtime descriptor factory.
 export { t as typing, t as typed } from "./typed";

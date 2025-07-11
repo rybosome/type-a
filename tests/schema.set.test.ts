@@ -1,18 +1,15 @@
 /**
- * Native JavaScript `Set` support for `many()` – **v3 runtime**.
+ * Native JavaScript `Set` support for `many()`.
  */
 
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { many } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, many, typing as t } from "@rybosome/type-a";
 
 class TagCollection extends Schema.from({
   tags: many(t.string, { asSet: true }),
 }) {}
 
-describe("v3 Schema Set support", () => {
+describe("Schema Set support", () => {
   it("constructs with a Set value and preserves runtime type", () => {
     const initial = new Set<string>(["alpha", "beta"]);
     const instance = new TagCollection({ tags: initial });

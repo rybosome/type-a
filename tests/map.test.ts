@@ -1,12 +1,9 @@
 /**
- * Record / Map support via `t.map` – v3 runtime.
+ * Record / Map support via `t.map`
  */
 
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typing as t } from "@rybosome/type-a";
 
 /* -------------------------------------------------------------------------- */
 /*  Simple Record & Map fields (compile-time sees Record<…>)                  */
@@ -37,7 +34,7 @@ class MixedNested extends Schema.from({
 /*  Runtime behaviour                                                         */
 /* -------------------------------------------------------------------------- */
 
-describe("v3 Schema record & map support (native)", () => {
+describe("Schema record & map support (native)", () => {
   it("supports simple Record and Map inputs", () => {
     const instance = new SimpleMaps({
       meta: { hello: "world" },

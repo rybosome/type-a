@@ -1,19 +1,16 @@
 /**
  * Focused JSON serialization tests ensuring BigInt values are coerced to
- * strings so `JSON.stringify` does not throw – **v3 runtime**.
+ * strings so `JSON.stringify` does not throw.
  */
 
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typing as t } from "@rybosome/type-a";
 
 class BigIntModel extends Schema.from({
   qty: one(t.bigint),
 }) {}
 
-describe("v3 JSON serialization", () => {
+describe("JSON serialization", () => {
   it("serializes a normal BigInt to a JSON string", () => {
     const m = new BigIntModel({ qty: 42n });
     expect(JSON.stringify(m)).toBe('{"qty":"42"}');

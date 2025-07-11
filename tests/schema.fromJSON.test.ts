@@ -1,14 +1,9 @@
 /**
- * Tests the static `fromJSON` helper against the **v3 runtime**.
+ * Tests the static `fromJSON` helper.
  */
 
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
-
-import { constraints as c } from "@src/index";
+import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
 
 // Minimal schema with two constrained fields
 const User = Schema.from({
@@ -16,7 +11,7 @@ const User = Schema.from({
   age: one(t.number, { is: c.atLeast(18) }),
 });
 
-describe("Schema.fromJSON (v3)", () => {
+describe("Schema.fromJSON", () => {
   it("returns `val` on success and `errs` undefined", () => {
     const res = User.fromJSON({ name: "Alice", age: 30 });
 

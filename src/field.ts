@@ -1,14 +1,3 @@
-/*
- * Prototype implementation of `one()` / `many()` builders — **API v3**
- * ------------------------------------------------------------------
- *
- * These functions mirror the legacy builders found in `src/field.ts` but take
- * a **runtime descriptor** (`TypedSpec` from `v3/typed.ts`) instead of generic
- * type parameters.  At this stage we only care about *typing* and the ability
- * to attach `spec` metadata — full validation & JSON-Schema emission will land
- * in the next migration phases.
- */
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type {
@@ -17,22 +6,17 @@ import type {
   Typeable,
   InputOf,
   OutputOf,
+  LogicalConstraint,
+  Serdes,
 } from "@src/types";
-import type { LogicalConstraint, Serdes } from "@src/types";
+import type { RawOfSpec, TypedSpec, ValueOfSpec } from "@src/typed.js";
 
 // ---------------------------------------------------------------------------
-// Extended v3-specific FieldOpts additions
+// FieldOpts
 // ---------------------------------------------------------------------------
 
-/**
- * Extra options introduced by the API v3 runtime descriptor migration.  These
- * keys are *not* present in the legacy builder but are harmlessly ignored by
- * existing call-sites because we intersect them onto the previous type.
- */
 /**
  * Core builder options shared between both `one()` and `many()`.
- * Extracted from the removed legacy builder so we can drop the file while
- * keeping the public type contract intact.
  */
 export interface BaseFieldOpts<T extends Typeable, R = T> {
   /** Optional default value or thunk returning the value. */
@@ -45,7 +29,7 @@ export interface BaseFieldOpts<T extends Typeable, R = T> {
   serdes?: Serdes<T, R>;
 
   /**
-   * Explicit discriminated-union support. When provided **Type-A** picks the
+   * Explicit discriminated-union support. When provided **type-a** picks the
    * constructor at runtime based on the incoming raw object’s discriminator
    * value.
    */
@@ -69,12 +53,6 @@ interface FieldExtras {
    */
   asSet?: boolean;
 }
-
-import type { RawOfSpec, TypedSpec, ValueOfSpec } from "./typed.js";
-
-// ---------------------------------------------------------------------------
-// FieldOpts — identical to the v2 version, re-exported for convenience.
-// ---------------------------------------------------------------------------
 
 export type FieldOpts<T extends Typeable, R = T> = BaseFieldOpts<T, R> &
   FieldExtras;
@@ -113,21 +91,16 @@ function makeField<S extends SchemaClass | TypedSpec<any, any>>(
     spec,
   } as any;
 
-  // Attach optional metadata identically to the legacy builder.
+  // Attach optional metadata
   if (opts.default !== undefined) (field as any).default = opts.default;
   if (opts.is) (field as any).is = opts.is;
   if (opts.serdes) (field as any).serdes = opts.serdes;
-
-  /* --------------------------------------------------------------- */
-  /* v3-specific extras                                              */
-  /* --------------------------------------------------------------- */
-
   if (opts.optional) (field as any).optional = true;
   if (opts.nullable) (field as any).nullable = true;
   if (opts.described) (field as any).description = opts.described;
 
   // Nested schema handling — if the *spec* is a SchemaClass attach it so that
-  // the constructor can rehydrate later on (implemented in Phase C).
+  // the constructor can rehydrate later on.
   if (typeof spec === "function") {
     (field as any).schemaClass = spec;
   }
@@ -149,11 +122,7 @@ export function one<S extends SchemaClass | TypedSpec<any, any>>(
 }
 
 // ---------------------------------------------------------------------------
-// many() builder — arrays only for the prototype (Set support later).
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// many() builder — supports both Array (default) **and** Set collections.
+// many() builder
 // ---------------------------------------------------------------------------
 
 // Overload – Array (default)

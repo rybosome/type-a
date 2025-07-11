@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typing as t } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (s: string) => new Date(s);
@@ -14,7 +11,7 @@ class User extends Schema.from({
   }),
 }) {}
 
-describe("v3 Schema property custom (de)serialisers", () => {
+describe("Schema property custom (de)serialisers", () => {
   it("round-trips Date <-> string correctly", () => {
     const iso = "2025-01-02T03:04:05.000Z";
     const u = new User({ name: "Alice", created: iso });
@@ -31,6 +28,4 @@ describe("v3 Schema property custom (de)serialisers", () => {
     const f = new Foo({ value: 42 });
     expect(f.toJSON()).toEqual({ value: 42 });
   });
-
-  // (Compile-time negative case omitted in v3 port)
 });

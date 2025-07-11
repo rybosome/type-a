@@ -1,12 +1,9 @@
 /**
- * Tuple handling tests – v3 runtime (native `t.tuple`).
+ * Tuple handling tests – `t.tuple`.
  */
 
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typing as t } from "@rybosome/type-a";
 
 /* -------------------------------------------------------------------------- */
 /*  Schema under test                                                         */
@@ -21,7 +18,7 @@ class Tuples extends Schema.from({
 /*  Runtime behaviour                                                         */
 /* -------------------------------------------------------------------------- */
 
-describe("v3 Schema tuple support (native)", () => {
+describe("Schema tuple support (native)", () => {
   it("accepts and preserves fixed-length tuples", () => {
     const m = new Tuples({
       pair: [true, 42],
