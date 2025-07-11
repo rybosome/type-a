@@ -70,6 +70,18 @@ async function generateTests(
   for (const { file, blocks } of docs) {
     const rel = path.relative(PROJECT_ROOT, file).replace(/[/\\]/g, "-");
     for (const block of blocks) {
+      // Phase-4 enforcement: every docs code block must explicitly import vitest and @rybosome/type-a.
+      if (!/from\s+["']vitest["']/.test(block)) {
+        throw new Error(
+          `🚨 Docs code block in ${file} is missing an explicit vitest import`,
+        );
+      }
+      if (!/from\s+["']@rybosome\/type-a["']/.test(block)) {
+        throw new Error(
+          `🚨 Docs code block in ${file} is missing an explicit @rybosome/type-a import`,
+        );
+      }
+
       const filename = `doc-${rel}-${counter++}.test.ts`;
       const filepath = path.join(TESTS_SUBDIR, filename);
 

@@ -23,26 +23,23 @@ The snippet below defines a minimal `User` schema, instantiates it with data, an
 runs a validation.
 
 ```ts test
-import { describe, it, expect } from \"vitest\";
-import { Schema, one, constraints as c, typed as t } from \"@rybosome/type-a\";
+import { describe, it, expect } from "vitest";
+import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
-describe(\"Hello Type-A\", () => {
-  it(\"creates and validates a User\", () => {
+describe("Hello Type-A", () => {
+  it("creates and validates a User", () => {
     class User extends Schema.from({
       id: one(t.string, { is: c.nonEmpty }),
       name: one(t.string),
       createdAt: one(t.serdes(Date, t.string), {
-        serdes: [
-          (d: Date) => d.toISOString(),
-          (iso: string) => new Date(iso),
-        ],
+        serdes: [(d: Date) => d.toISOString(), (iso: string) => new Date(iso)],
       }),
-    }) {};
+    }) {}
 
     const u = new User({
-      id: \"550e8400-e29b-41d4-a716-446655440000\",
-      name: \"Alice\",
-      createdAt: new Date(\"2025-01-01T00:00:00Z\"),
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      name: "Alice",
+      createdAt: "2025-01-01T00:00:00Z",
     });
 
     expect(u.validate()).toEqual([]); // no errors
@@ -56,4 +53,3 @@ describe(\"Hello Type-A\", () => {
 
 Next up: explore the rest of the **API reference** to learn how to model maps,
 tuples, nested schemas, and more.
-
