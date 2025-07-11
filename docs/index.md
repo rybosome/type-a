@@ -1,6 +1,6 @@
 # Type-A Documentation (v3)
 
-Welcome to the *early* draft of the public **Type-A** documentation.  These pages are being re-organized; content will be filled in during the next phases of the overhaul.
+Welcome to the _early_ draft of the public **Type-A** documentation. These pages are being re-organized; content will be filled in during the next phases of the overhaul.
 
 ```txt
 📌 Status
@@ -17,7 +17,6 @@ Available sections (coming soon):
 
 <br/>
 
-> **Note**  Most pages are still under construction. Check back after the
+> **Note** Most pages are still under construction. Check back after the
 > upcoming Phase 2/3 pull requests for complete guides and runnable code
 > samples.
-
