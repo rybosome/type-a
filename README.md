@@ -1,6 +1,8 @@
 # type-a
 
-<img src="https://github.com/rybosome/type-a/raw/refs/heads/main/docs/assets/anna-adder.png" alt="Anna Adder – project mascot" />
+<p align="center">
+  <img src="https://rybosome.github.io/type-a/assets/anna-adder.png" alt="Anna Adder – project mascot" />
+</p>
 
 ## Overview
 
