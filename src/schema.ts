@@ -673,6 +673,35 @@ export class Schema<F extends Fields> implements SchemaInstance {
         propSchema = { type: "array", items: propSchema };
       }
 
+      // ---------------------------------------------------------------
+      // Nullable support — when the field is flagged as `nullable: true`
+      // we widen the schema to also allow the JSON literal `null`.
+      // ---------------------------------------------------------------
+      const isNullable = (fieldDef as any).nullable === true;
+      if (isNullable) {
+        if (propSchema.type) {
+          if (Array.isArray(propSchema.type)) {
+            if (!(propSchema.type as string[]).includes("null")) {
+              propSchema.type = [...(propSchema.type as string[]), "null"];
+            }
+          } else if (typeof propSchema.type === "string") {
+            propSchema.type = [propSchema.type as string, "null"];
+          }
+        } else if (propSchema.oneOf) {
+          propSchema.oneOf = [
+            ...(propSchema.oneOf as unknown[]),
+            { type: "null" },
+          ];
+        } else if (propSchema.anyOf) {
+          propSchema.anyOf = [
+            ...(propSchema.anyOf as unknown[]),
+            { type: "null" },
+          ];
+        } else {
+          propSchema = { anyOf: [propSchema, { type: "null" }] } as any;
+        }
+      }
+
       const desc = (fieldDef as any).description;
       if (desc) propSchema.description = desc;
 
