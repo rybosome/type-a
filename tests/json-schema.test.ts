@@ -215,7 +215,7 @@ describe("jsonSchema – default values remove property from required", () => {
 /* Skipped scenarios – edge-cases not yet fully supported                      */
 /* ------------------------------------------------------------------------- */
 
-it.skip("jsonSchema – nullable properties (pending implementation)", () => {
+it("jsonSchema – nullable properties (pending implementation)", () => {
   class Nullable extends Schema.from({
     maybe: one(t.string, { nullable: true }),
   }) {}
@@ -228,7 +228,7 @@ it.skip("jsonSchema – nullable properties (pending implementation)", () => {
     required: ["maybe"],
   } as const;
 
-  // expect(Nullable.jsonSchema()).toStrictEqual(expected);
+  expect(Nullable.jsonSchema()).toStrictEqual(expected);
 });
 
 it.skip("jsonSchema – anyOf / allOf combinations (not implemented)", () => {
