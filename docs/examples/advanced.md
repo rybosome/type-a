@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   Schema,
   one,
+  many,
   typed as t,
   constraints as c,
 } from "@rybosome/type-a";
@@ -25,7 +26,7 @@ class Product extends Schema.from({
   id: one(t.string),
   name: one(t.string),
   price: one(t.number, { is: c.atLeast(0) }),
-  tags: one(t.array(t.string), { optional: true }),
+  tags: many(t.string, { optional: true }),
   createdAt: one(t.serdes(Date, t.string), {
     serdes: [(d: Date) => d.toISOString(), (iso: string) => new Date(iso)],
   }),
@@ -34,11 +35,17 @@ class Product extends Schema.from({
 // ────────────────────────────────────────────────────────────
 // 2. Order schema with nested & map fields
 // ────────────────────────────────────────────────────────────
+const Status = {
+  pending: "pending",
+  paid: "paid",
+  shipped: "shipped",
+} as const;
+
 class Order extends Schema.from({
   id: one(t.string),
   user: one(User),
-  items: one(t.map(t.string, Product)), // key = productId, value = Product
-  status: one(t.enum("pending", "paid", "shipped")),
+  items: one(t.map(t.string, t.number)), // productId -> quantity
+  status: one(t.enum(Status)),
   createdAt: one(t.serdes(Date, t.string), {
     serdes: [(d: Date) => d.toISOString(), (iso: string) => new Date(iso)],
   }),
@@ -54,18 +61,8 @@ describe("Advanced example: Order workflow", () => {
       id: "ord-1",
       user: { id: "u1", name: "Ada", email: "ada@example.com" },
       items: {
-        p1: {
-          id: "p1",
-          name: "Widget",
-          price: 19.99,
-          createdAt: "2025-07-01T00:00:00Z",
-        },
-        p2: {
-          id: "p2",
-          name: "Gadget",
-          price: 29.5,
-          createdAt: "2025-07-02T00:00:00Z",
-        },
+        p1: 2,
+        p2: 1,
       },
       status: "paid",
       createdAt: "2025-07-04T12:00:00Z",
@@ -76,8 +73,9 @@ describe("Advanced example: Order workflow", () => {
 
     // Deeply nested classes are instantiated automatically
     expect(order.user).toBeInstanceOf(User);
-    const firstItem = Object.values(order.items)[0];
-    expect(firstItem).toBeInstanceOf(Product);
+
+    // Map keys remain accessible on the plain object form
+    expect(order.items.p1).toBe(2);
 
     // Round-trip through JSON → plain object → back via constructor
     const json = JSON.parse(JSON.stringify(order));

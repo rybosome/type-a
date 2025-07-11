@@ -17,16 +17,19 @@ import { describe, it, expect } from "vitest";
 import {
   Schema,
   one,
+  many,
   typed as t,
   constraints as c,
 } from "@rybosome/type-a";
+
+const Roles = { admin: "admin", member: "member" } as const;
 
 // 1. Define the model
 class User extends Schema.from({
   id: one(t.string, { is: c.nonEmpty }),
   name: one(t.string),
   email: one(t.string, { is: c.nonEmpty }),
-  roles: one(t.set(t.enum("admin", "member"))),
+  roles: many(t.enum(Roles), { asSet: true }),
 }) {}
 
 describe("Quick-start", () => {
