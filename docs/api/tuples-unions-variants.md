@@ -6,7 +6,7 @@ Type-A supports complex composite types through a family of descriptors:
 - **`t.union(A, B)`** – compile-time union with runtime discriminator.
 - **`t.variant({ kind: T.literal("a"), ... })`** – tagged unions (a.k.a. algebraic variants).
 
-```ts test
+```typescript test
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 
@@ -26,4 +26,4 @@ describe("Tuple and union fields", () => {
 });
 ```
 
-The `variant` helper builds on top of `union` and is covered in [nested schemas](https://rybosome.github.io/type-a/api/nested-schemas/).
+The `variant` helper builds on top of `union` and is covered in [nested schemas](https://rybosome.github.io/type-a/api/nested-schemas).
