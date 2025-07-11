@@ -20,5 +20,5 @@ describe("Primitive field validation", () => {
 });
 ```
 
-Use constraints (see _constraints.md_) to add semantic validation rules on top
+Use constraints (see [constraints](https://rybosome.github.io/type-a/api/constraints/)) to add semantic validation rules on top
 of the raw primitive runtime checks.

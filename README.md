@@ -6,6 +6,8 @@
 
 A minimal, class-first schema library with lightweight reflection for TypeScript.
 
+**📚 Documentation**: https://rybosome.github.io/type-a/
+
 ```typescript
 import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
 
