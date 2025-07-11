@@ -2,7 +2,7 @@
 
 This repository uses **Type-A** for schema validation. The snippet below is a **live test** – it is compiled and executed by `pnpm docs:test` to guarantee the example remains correct and type-safe.
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 

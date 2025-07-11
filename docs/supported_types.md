@@ -4,7 +4,7 @@ This page demonstrates the six major type categories that **type-a** supports ou
 
 ## 1. Primitives
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
@@ -24,7 +24,7 @@ describe("Person primitives", () => {
 
 ## 2. Enums & Literals
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 
@@ -48,7 +48,7 @@ describe("Post state enum", () => {
 
 ## 3. Nullability, Defaults & Tuples
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, many, typed as t } from "@rybosome/type-a";
 
@@ -78,7 +78,7 @@ describe("Optional fields & collections", () => {
 
 ## 4. Nested Schemas
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
@@ -106,7 +106,7 @@ describe("Nested schemas", () => {
 
 ## 5. Custom Types via `serdes`
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 
