@@ -22,6 +22,9 @@ importers:
       eslint:
         specifier: ^9.30.1
         version: 9.30.1
+      lz-string:
+        specifier: ^1.5.0
+        version: 1.5.0
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
@@ -1422,6 +1425,13 @@ packages:
       {
         integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==,
       }
+
+  lz-string@1.5.0:
+    resolution:
+      {
+        integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==,
+      }
+    hasBin: true
 
   magic-string@0.30.17:
     resolution:
@@ -2873,6 +2883,8 @@ snapshots:
   loupe@3.1.4: {}
 
   lru-cache@10.4.3: {}
+
+  lz-string@1.5.0: {}
 
   magic-string@0.30.17:
     dependencies:
