@@ -7,41 +7,6 @@ on:
 
 jobs:
   build-test:
-    name: Lint, Build & Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
-
-      # ------------------ Code Quality ------------------
-      - name: Lint with ESLint (check only)
-        run: pnpm exec eslint src --ext .ts
-
-      - name: Check formatting with Prettier
-        run: pnpm exec prettier --check .
-
-      # ------------------ Build ------------------
-      - name: TypeScript type-check (tsc)
-        run: pnpm exec tsc --noEmit --pretty
-
-      - name: Build with tsup
-        run: pnpm run build
-
-      # ------------------ Tests ------------------
-      - name: Run unit tests with Vitest
-        run: pnpm exec vitest --run --reporter=default
+    uses: ./.github/workflows/build-test.yml
+    with:
+      node-version: "22"

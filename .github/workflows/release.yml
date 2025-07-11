@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Merge Checks"]
+    branches: [main]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Execute the release in dry-run mode (no tags, commits or npm publish)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  verify:
+    name: Re-run Build & Test
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build-test.yml
+    with:
+      node-version: "22"
+
+  release:
+    name: Publish Package
+    needs: verify
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create commits/tags/releases
+      issues: write # add release notes / comment on issues
+
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+      # ----- Release (dry-run or real) -----
+      - name: semantic-release (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry-run == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release --dry-run
+
+      - name: semantic-release (publish)
+        if: github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
