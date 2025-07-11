@@ -3,7 +3,7 @@
 Primitive type descriptors live in the `t.*` namespace and include
 `string`, `number`, `boolean`, and `bigint`.
 
-```ts test
+```typescript test
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
@@ -20,5 +20,5 @@ describe("Primitive field validation", () => {
 });
 ```
 
-Use constraints (see [constraints](https://rybosome.github.io/type-a/api/constraints/)) to add semantic validation rules on top
+Use constraints (see [constraints](https://rybosome.github.io/type-a/api/constraints)) to add semantic validation rules on top
 of the raw primitive runtime checks.

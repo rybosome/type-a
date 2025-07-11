@@ -1,6 +1,6 @@
 # Supported Types
 
-This page demonstrates the six major type categories that **Type-A** supports out of the box. Every example below is executed by `pnpm docs:test`, so the docs will break if any snippet stops compiling or its assertions fail.
+This page demonstrates the six major type categories that **type-a** supports out of the box. Every example below is executed by `pnpm docs:test`, so the docs will break if any snippet stops compiling or its assertions fail.
 
 ## 1. Primitives
 

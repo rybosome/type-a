@@ -8,7 +8,7 @@ optionally accept field-level options (defaults, constraints, etc.).
 - **`many()`** – declares an _ordered collection_ (`Array` or `Set`), depending
   on the runtime input.
 
-```ts test
+```typescript test
 import { describe, it, expect } from "vitest";
 import { Schema, one, many, typed as t } from "@rybosome/type-a";
 

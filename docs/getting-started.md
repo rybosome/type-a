@@ -1,6 +1,6 @@
 # Getting Started
 
-Welcome to **Type-A** – a tiny but powerful schema & validation library for TypeScript.
+Welcome to **type-a** – a tiny but powerful schema & validation library for TypeScript.
 This guide shows how to install the package and run your _first_ schema.
 
 ## Installation
@@ -22,11 +22,11 @@ npm install @rybosome/type-a vitest --save-dev
 The snippet below defines a minimal `User` schema, instantiates it with data, and
 runs a validation.
 
-```ts test
+```typescript test
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
-describe("Hello Type-A", () => {
+describe("Hello type-a", () => {
   it("creates and validates a User", () => {
     class User extends Schema.from({
       id: one(t.string, { is: c.nonEmpty }),
@@ -46,8 +46,6 @@ describe("Hello Type-A", () => {
   });
 });
 ```
-
-[Run on StackBlitz](https://stackblitz.com/fork/node?file=index.test.ts)
 
 ---
 

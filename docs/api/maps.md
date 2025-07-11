@@ -4,7 +4,7 @@ Need to model a dynamic key–value store? Use `t.map(keyDesc, valueDesc)`.
 It supports both JavaScript `Map` instances _and_ plain object-literals at
 runtime.
 
-```ts test
+```typescript test
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 
