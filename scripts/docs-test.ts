@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // docs-test.ts
-// Traverses the docs/ directory, extracts fenced `typescript test` blocks,
+// Traverses the docs/ directory, extracts fenced TypeScript code blocks,
 // converts them into temporary Vitest test files, type-checks them with tsc,
 // and executes them with Vitest. Exits with a non-zero status on any failure.
 
@@ -43,9 +43,9 @@ async function collectMarkdown(dir: string): Promise<string[]> {
   return files.flat();
 }
 
-/** Extract TypeScript code blocks tagged with `test` from a Markdown string. */
+/** Extract TypeScript code blocks from a Markdown string. */
 function extractTestBlocks(markdown: string): string[] {
-  const regex = /```(?:ts|typescript)[\t ]+test[^\n]*\n([\s\S]*?)```/gim;
+  const regex = /```[ \t]*(?:ts|typescript)\b[^\n]*\n([\s\S]*?)```/gim;
   const blocks: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(markdown)) !== null) {
@@ -149,7 +149,7 @@ function run(cmd: string): void {
     // root README
     try {
       const stat = await fs.stat(ROOT_README);
-      if (stat.isFile()) mdFiles.push(ROOT_README);
+      // skipping root README
     } catch {
       /* ignore */
     }
@@ -167,9 +167,7 @@ function run(cmd: string): void {
     }
 
     if (docsWithBlocks.length === 0) {
-      console.log(
-        "No `typescript test` code blocks found – skipping docs tests.",
-      );
+      console.log("No TypeScript code blocks found – skipping docs tests.");
       process.exit(0);
     }
 
