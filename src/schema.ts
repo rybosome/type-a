@@ -688,9 +688,15 @@ export class Schema<F extends Fields> implements SchemaInstance {
             propSchema.type = [propSchema.type as string, "null"];
           }
         } else if (propSchema.oneOf) {
-          (propSchema.oneOf as unknown[]).push({ type: "null" });
+          propSchema.oneOf = [
+            ...(propSchema.oneOf as unknown[]),
+            { type: "null" },
+          ];
         } else if (propSchema.anyOf) {
-          (propSchema.anyOf as unknown[]).push({ type: "null" });
+          propSchema.anyOf = [
+            ...(propSchema.anyOf as unknown[]),
+            { type: "null" },
+          ];
         } else {
           propSchema = { anyOf: [propSchema, { type: "null" }] } as any;
         }
