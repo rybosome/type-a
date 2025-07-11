@@ -1,0 +1,55 @@
+name: Build & Test
+
+# Reusable workflow containing the canonical CI logic (lint ➜ type-check ➜ build ➜ test).
+# This workflow is intended to be invoked via `workflow_call` from other workflows
+# (e.g. PR checks, release pipeline) to ensure a single source of truth.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use during the build"
+        type: string
+        default: "22"
+        required: false
+
+jobs:
+  build-test:
+    name: Lint, Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      # ------------------ Code Quality ------------------
+      - name: Lint with ESLint (check only)
+        run: pnpm exec eslint src --ext .ts
+
+      - name: Check formatting with Prettier
+        run: pnpm exec prettier --check .
+
+      # ------------------ Build ------------------
+      - name: TypeScript type-check (tsc)
+        run: pnpm exec tsc --noEmit --pretty
+
+      - name: Build with tsup
+        run: pnpm run build
+
+      # ------------------ Tests ------------------
+      - name: Run unit tests with Vitest
+        run: pnpm exec vitest --run --reporter=default

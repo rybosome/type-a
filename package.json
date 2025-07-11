@@ -47,5 +47,8 @@
     "typescript-eslint": "^8.36.0",
     "vitest": "^3.2.4"
   },
-  "private": false
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  }
 }
