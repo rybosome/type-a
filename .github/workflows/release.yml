@@ -60,8 +60,12 @@ jobs:
       - name: Configure npm auth
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        run: npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+
+      - name: Check npm identity
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami --registry=https://registry.npmjs.org/
 
       # ----- Release (dry-run or real) -----
       - name: semantic-release (dry-run)
