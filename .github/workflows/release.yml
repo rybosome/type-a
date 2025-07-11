@@ -17,9 +17,7 @@ on:
 jobs:
   verify:
     name: Re-run Build & Test
-    if: >-
-      ${/* Run if manual dispatch OR the triggering workflow succeeded */''}
-      ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/build-test.yml
     with:
       node-version: "22"
