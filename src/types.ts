@@ -167,7 +167,7 @@ export type FieldWithoutDefault<T extends Typeable, R = T> = Omit<
 export interface FieldType<T extends Typeable, R = T> {
   /**
    * Compile-time marker that preserves the **exact** generic parameter `T`
-   * (including `undefined`) during conditional-type inference via `FieldType<infer V>`.
+   * (including `undefined`) during conditional-type inference via `FieldType<infer V, any>`.
    *
    * This is a phantom property: it exists only at the type level and is never
    * assigned or accessed at runtime.
@@ -235,19 +235,19 @@ export type Fields = Record<string, FieldType<any>>;
 
 export type ValueType<F> = F extends { schemaClass: infer S }
   ? S extends SchemaClass
-    ? F extends FieldType<infer V>
+    ? F extends FieldType<infer V, any>
       ? V // Preserve generic param (handles arrays automatically)
       : OutputOf<S>
     : never
   : F extends { variantClasses: infer Arr }
     ? Arr extends SchemaClass[]
-      ? F extends FieldType<infer V>
+      ? F extends FieldType<infer V, any>
         ? V extends any[]
           ? OutputOf<Arr[number]>[]
           : OutputOf<Arr[number]>
         : OutputOf<Arr[number]>
       : never
-    : F extends FieldType<infer V>
+    : F extends FieldType<infer V, any>
       ? V
       : never;
 
@@ -285,7 +285,7 @@ export type RequiredKeys<F extends Fields> = {
  */
 export type InputType<F> = F extends { schemaClass: infer S }
   ? S extends SchemaClass
-    ? F extends FieldType<infer V>
+    ? F extends FieldType<infer V, any>
       ? V extends any[]
         ? InputOf<S>[]
         : V extends Set<any>
@@ -295,7 +295,7 @@ export type InputType<F> = F extends { schemaClass: infer S }
     : never
   : F extends { variantClasses: infer Arr }
     ? Arr extends SchemaClass[]
-      ? F extends FieldType<infer V>
+      ? F extends FieldType<infer V, any>
         ? V extends any[]
           ? InputOf<Arr[number]>[]
           : V extends Set<any>

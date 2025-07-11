@@ -99,7 +99,7 @@ describe("Nested schemas", () => {
       address: { street: "42 Main St", zip: "12345" },
     });
 
-    expect((u.address as any).street).toBe("42 Main St");
+    expect(u.address.street).toBe("42 Main St");
   });
 });
 ```
