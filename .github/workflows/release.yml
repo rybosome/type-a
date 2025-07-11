@@ -65,10 +65,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.dry-run == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release --dry-run
 
       - name: semantic-release (publish)
         if: github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
