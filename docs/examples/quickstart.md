@@ -61,4 +61,3 @@ describe("Quick-start", () => {
 
 Continue with the [**advanced** example](./advanced.md) to see nested schemas,
 maps, and custom serializers in action.
-
