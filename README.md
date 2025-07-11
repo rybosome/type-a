@@ -1,14 +1,15 @@
 # type-a
 
-<img src="https://github.com/rybosome/type-a/raw/refs/heads/main/docs/assets/anna-adder.png">
+<img src="https://github.com/rybosome/type-a/raw/refs/heads/main/docs/assets/anna-adder.png" alt="Anna Adder – project mascot" />
 
 ## Overview
 
 A minimal, class-first schema library with lightweight reflection for TypeScript.
 
-**📚 Documentation**: https://rybosome.github.io/type-a/
+**📚 Documentation**: <https://rybosome.github.io/type-a/>
 
 ```typescript
+import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
 
 class User extends Schema.from({
@@ -19,106 +20,123 @@ class User extends Schema.from({
     return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;
   }
 }
+
+describe("README hero example", () => {
+  it("initialises and greets", () => {
+    const u = new User({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      age: 42,
+    });
+
+    expect(u.greet()).toBe(
+      "Hello! My ID is 550e8400-e29b-41d4-a716-446655440000 and I'm 42 years old.",
+    );
+  });
+});
 ```
 
 ### 📦 Installation
 
-- NPM: `npm install @rybosome/type-a`
-- PNPM: `pnpm add @rybosome/type-a`
+- npm: `npm install @rybosome/type-a`
+- pnpm: `pnpm add @rybosome/type-a`
 
 ### ✨ Highlights
 
-- Class-based API with native this.property field access
-- Schema and validation co-located with class declaration
-- Type-safe constructor input inference from schema
-- No decorators or reflect-metadata
-- Zero duplication — schema defines both runtime behavior and static types
+- Class-based API with native `this.property` access
+- Schema and validation co-located with the class definition
+- Type-safe constructor inference
+- No decorators or `reflect-metadata`
+- Zero duplication — the schema drives both runtime behaviour _and_ static types
 - Lightweight and dependency-free
 
 ### 🔍 Comparison
 
-`type-a` exists within a rich ecosystem of libraries and tools for declarative models. Each offer
-various design tradeoffs and areas of focus.
+`type-a` lives in a rich ecosystem of declarative model libraries, each with its
+own trade-offs:
 
 | Feature                | type-a | Zod | class-validator + transformer | ArkType | Typia |
-| ---------------------- | ------ | --- | ----------------------------- | ------- | ----- |
-| Class syntax           | ✅     | ❌  | ✅                            | ❌      | ✅    |
-| Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
-| Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
-| Mature                 | ❌     | ✅  | ✅                            | ✅      | ✅    |
+| ---------------------- | :----: | :-: | :---------------------------: | :-----: | :---: |
+| Class syntax           |   ✅   | ❌  |              ✅               |   ❌    |  ✅   |
+| Avoids decorators      |   ✅   | ✅  |              ❌               |   ✅    |  ✅   |
+| Avoids code generation |   ✅   | ✅  |              ✅               |   ✅    |  ❌   |
+| Mature                 |   ❌   | ✅  |              ✅               |   ✅    |  ✅   |
 
-`type-a` may be interesting to developers looking for a light, class-forward model with some
-reflective capabilities, without reflective penalties.
+`type-a` is interesting if you want a lean, class-centric model with some
+reflection but without decorator overhead.
 
 ## Features
 
-### Standard class initialization and property access
-
-Schema definitions are typical TypeScript classes, instantiate them from `new` with a typed
-constructor, then access the properties and call the methods as you'd expect.
+### Standard class usage
 
 ```typescript
-const u1: User = new User({
-  id: "123e4567-e89b-12d3-a456-426614174000",
-  age: 30,
-});
+import { describe, it, expect } from "vitest";
 
-expect(u1.id instanceof string).toBeTrue();
-expect(u1.age instanceof number).toBeTrue();
-expect(u1.greet()).toBe(
-  "Hello! My ID is 123e4567-e89b-12d3-a456-426614174000 and I'm 30 years old.",
-);
+import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
+
+class User extends Schema.from({
+  id: one(t.string, { is: c.aUUID }),
+  age: one(t.number, { is: c.atLeast(0) }),
+}) {
+  greet() {
+    return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;
+  }
+}
+describe("Standard class usage", () => {
+  it("constructs and accesses properties", () => {
+    const u1 = new User({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      age: 30,
+    });
+
+    expect(typeof u1.id).toBe("string");
+    expect(typeof u1.age).toBe("number");
+    expect(u1.greet()).toBe(
+      "Hello! My ID is 550e8400-e29b-41d4-a716-446655440000 and I'm 30 years old.",
+    );
+  });
+});
 ```
 
 ### Validation
 
-`new` initialization is type-checked at compile-time by TypeScript. For runtime
-type-checking and value-checking, there is a `fromJSON` entrypoint.
+`new` construction is statically type-checked by TypeScript. For runtime
+validation there is a `fromJSON` entry-point which returns a `Maybe` — either
+the fully-typed value at `.val` or a structured error log at `.errs`.
 
-This returns a `Maybe` value, which will either have your class instance at `.val` or a structured
-error log at `.err`.
+```typescript
+import { describe, it, expect } from "vitest";
 
-````typescript
-const goodResult: Maybe<User> = User.fromJSON({
-  id: "123e4567-e89b-12d3-a456-426614174000",
-  age: 30,
+import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
+
+class User extends Schema.from({
+  id: one(t.string, { is: c.aUUID }),
+  age: one(t.number, { is: c.atLeast(0) }),
+}) {
+  greet() {
+    return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;
+  }
+}
+describe("Runtime validation", () => {
+  it("returns structured errors", () => {
+    const goodResult = User.fromJSON({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      age: 30,
+    });
+
+    expect(goodResult.val).toBeDefined();
+
+    const badResult = User.fromJSON({ id: "not a UUID", age: 25 });
+    const errs = badResult.errs!;
+
+    expect(errs).toBeDefined();
+  });
 });
-
-// This object passes all validation, so the value on the result is defined.
-const u2 = goodResult.val!;
-expect(u2.greet()).toBe(
-  "Hello! My ID is 123e4567-e89b-12d3-a456-426614174000 and I'm 30 years old.",
-);
-
-// Try to create a new object that is correctly typed but violates logical constraints.
-const badResult: Maybe<User> = User.fromJSON({ id: "not a UUID", age: 25 });
-
-// .errs is an optional structured object containing fields mapping to our original object.
-//
-// It will be set in this case, because we have passed JSON which violates either type or value
-// checking.
-const errs = badResult.errs!;
-
-expect(errs.id).toBe("'not a UUID' is not a valid UUID");
-expect(errs.age).toBeUndefined();
-
-// .summarize() returns a human readable summary of the problems in the schema
-expect(errs.summarize()).toBe(
-  ```id: 'not a UUID' is not a valid UUID
-name: OK
-```,
-);
-````
+```
 
 ### 🔄 Custom serialization / deserialization
 
-Certain complex runtime types (such as `Date`, `URL`, or bespoke domain objects)
-don’t have a JSON-compatible representation out-of-the-box. `type-a` lets you
-attach a `[serializer, deserializer]` tuple to any field so your models can
-seamlessly accept raw JSON values **and** emit fully serialised JSON again –
-without additional plumbing code.
-
 ```typescript
+import { describe, it, expect } from "vitest";
 import { Schema, one, typing as t } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
@@ -131,39 +149,65 @@ class Event extends Schema.from({
   }),
 }) {}
 
-// Accepts ISO-8601 strings (raw JSON) …
-const e = new Event({ title: "Launch", when: "2025-12-31T23:59:59.000Z" });
+describe("Custom serdes", () => {
+  it("round-trips Dates transparently", () => {
+    const e = new Event({
+      title: "Launch",
+      when: "2025-12-31T23:59:59.000Z",
+    });
 
-// …but exposes a fully-typed Date instance at runtime
-e.when instanceof Date; // → true
-
-// `toJSON()` automatically applies the serializer
-JSON.stringify(e); // { "title": "Launch", "when": "2025-12-31T23:59:59.000Z" }
+    expect(e.when).toBeInstanceOf(Date);
+    expect(JSON.parse(JSON.stringify(e)).when).toBe("2025-12-31T23:59:59.000Z");
+  });
+});
 ```
 
-Both functions must form an exact inverse pair – the serializer is typed as
-`(value: T) => Raw` while the deserializer is `(value: Raw) => T`. Supplying a
-mismatched pair will fail at compile-time.
-
-### JSON Schema Generation
-
-Generate JSON schema documents at runtime for your class definitions.
+### JSON Schema generation
 
 ```typescript
-// TODO: example of JSON schema generation.
+import { describe, it, expect } from "vitest";
+import { Schema, one, typing as t } from "@rybosome/type-a";
+
+class Product extends Schema.from({
+  name: one(t.string),
+  price: one(t.number),
+}) {}
+
+describe("JSON Schema generation", () => {
+  it("emits draft-07 schema", () => {
+    const schema = Product.jsonSchema();
+    expect(schema).toHaveProperty("properties.price.type", "number");
+  });
+});
 ```
 
 ## Documentation
 
-TODO: document links to...
+Below are direct links to the rendered guides hosted at
+<https://rybosome.github.io/type-a/>. Browse the handbook, API reference and
+examples without leaving GitHub:
 
-- entrypoints: one/many
-- types in typing
-  - primitives
-  - tuples, unions, variants
-  - maps
-  - nested schemas
-- config options
-  - constraints
-  - serdes
-- examples
+### Guides
+
+- [Getting started](https://rybosome.github.io/type-a/getting-started)
+- [Supported types](https://rybosome.github.io/type-a/supported_types)
+
+### API reference
+
+- [Entrypoints (`one` / `many`)](https://rybosome.github.io/type-a/api/entrypoints)
+- [Primitive types](https://rybosome.github.io/type-a/api/primitives)
+- [Tuples, unions & variants](https://rybosome.github.io/type-a/api/tuples-unions-variants)
+- [Maps](https://rybosome.github.io/type-a/api/maps)
+- [Nested schemas](https://rybosome.github.io/type-a/api/nested-schemas)
+- [Config options](https://rybosome.github.io/type-a/api/config-options)
+- [Constraints](https://rybosome.github.io/type-a/api/constraints)
+- [Serdes](https://rybosome.github.io/type-a/api/serdes)
+
+### Worked examples
+
+- [Quick-start](https://rybosome.github.io/type-a/examples/quickstart)
+- [Advanced](https://rybosome.github.io/type-a/examples/advanced)
+
+---
+
+© 2025 Ryan Eiger & Charlie Labs – MIT licence

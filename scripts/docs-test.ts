@@ -149,7 +149,7 @@ function run(cmd: string): void {
     // root README
     try {
       const stat = await fs.stat(ROOT_README);
-      // skipping root README
+      if (stat.isFile()) mdFiles.push(ROOT_README);
     } catch {
       /* ignore */
     }
