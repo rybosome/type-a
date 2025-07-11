@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // docs-test.ts
-// Traverses the docs/ directory, extracts fenced `typescript test` blocks, converts
-// them into temporary Vitest test files, type-checks them with tsc, and executes
-// them with Vitest. Exits with a non-zero status on any failure.
+// Traverses the docs/ directory, extracts fenced `typescript test` blocks,
+// converts them into temporary Vitest test files, type-checks them with tsc,
+// and executes them with Vitest. Exits with a non-zero status on any failure.
 
 /* eslint-disable no-console */
 
@@ -14,19 +14,19 @@ import { execSync } from "node:child_process";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ---------------------------------------------------------------------------
 // Paths
+// ---------------------------------------------------------------------------
+
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-
-// The dedicated docs directory (may not exist in every repo)
 const DOCS_DIR = path.join(PROJECT_ROOT, "docs");
-
-// The front-page README we always want to include
 const ROOT_README = path.join(PROJECT_ROOT, "README.md");
-
 const OUT_DIR = path.join(PROJECT_ROOT, ".docs-tests");
 const TESTS_SUBDIR = path.join(OUT_DIR, "tests");
 
+// ---------------------------------------------------------------------------
 // Helpers
+// ---------------------------------------------------------------------------
 
 /** Recursively collect Markdown file paths inside a directory. */
 async function collectMarkdown(dir: string): Promise<string[]> {
@@ -34,32 +34,17 @@ async function collectMarkdown(dir: string): Promise<string[]> {
   const files = await Promise.all(
     entries.map(async (entry) => {
       const res = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        return collectMarkdown(res);
-      }
-      if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      if (entry.isDirectory()) return collectMarkdown(res);
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
         return [res];
-      }
       return [] as const;
     }),
   );
   return files.flat();
 }
 
-/**
- * Extract TypeScript code blocks tagged with `test` from a Markdown string.
- * Returns an array of code block strings.
- */
+/** Extract TypeScript code blocks tagged with `test` from a Markdown string. */
 function extractTestBlocks(markdown: string): string[] {
-  /*
-   * Regex breakdown:
-   * ```                 opening fence
-   * (?:ts|typescript)   language tag (ts|typescript)
-   * [\t ]+test          at least one whitespace then the word test
-   * [^\n]*              ignore everything until newline (handles attrs)
-   * ([\s\S]*?)         lazily capture everything until the closing fence
-   * ```                 closing fence
-   */
   const regex = /```(?:ts|typescript)[\t ]+test[^\n]*\n([\s\S]*?)```/gim;
   const blocks: string[] = [];
   let match: RegExpExecArray | null;
@@ -75,10 +60,7 @@ async function prepareOutDir(): Promise<void> {
   await fs.mkdir(TESTS_SUBDIR, { recursive: true });
 }
 
-/**
- * Generate `.test.ts` files from extracted code blocks.
- * Returns the array of generated file paths.
- */
+/** Generate `.test.ts` files directly from docs code blocks. */
 async function generateTests(
   docs: Array<{ file: string; blocks: string[] }>,
 ): Promise<string[]> {
@@ -88,34 +70,28 @@ async function generateTests(
   for (const { file, blocks } of docs) {
     const rel = path.relative(PROJECT_ROOT, file).replace(/[/\\]/g, "-");
     for (const block of blocks) {
+      // Phase-4 enforcement: every docs code block must explicitly import vitest and @rybosome/type-a.
+      if (!/from\s+["']vitest["']/.test(block)) {
+        throw new Error(
+          `🚨 Docs code block in ${file} is missing an explicit vitest import`,
+        );
+      }
+      if (!/from\s+["']@rybosome\/type-a["']/.test(block)) {
+        throw new Error(
+          `🚨 Docs code block in ${file} is missing an explicit @rybosome/type-a import`,
+        );
+      }
+
       const filename = `doc-${rel}-${counter++}.test.ts`;
       const filepath = path.join(TESTS_SUBDIR, filename);
 
-      const lines = block.split("\n");
-
-      // Separate import lines (while preserving their original order) so they can be hoisted.
-      const importLines: string[] = [];
-      const bodyLines: string[] = [];
-
-      for (const line of lines) {
-        if (/^\s*import\s/.test(line)) {
-          importLines.push(line);
-        } else {
-          bodyLines.push(line);
-        }
-      }
-
+      // Phase-2 change: snippets are already *full* Vitest tests – no wrapper
+      // or import injection necessary.  We simply write them verbatim so the
+      // docs and the executed code stay in perfect sync.
       const content = [
-        "import { describe, it, expect } from 'vitest';",
-        ...importLines,
-        "",
         `/** Auto-generated from ${file.replace(/`/g, "")} */`,
         "",
-        "describe('documentation snippet', () => {",
-        "  it('executes without throwing', () => {",
-        ...bodyLines.map((l) => `    ${l}`),
-        "  });",
-        "});",
+        block,
         "",
       ].join("\n");
 
@@ -127,37 +103,22 @@ async function generateTests(
   return generated;
 }
 
-/**
- * Generate a minimal Vitest config that points `test.include` to the generated
- * tests directory so we don't interfere with the project's main test suite.
- */
+/** Generate a Vitest config that scopes the run to the generated tests only. */
 async function writeVitestConfig(): Promise<string> {
   const viteConfigPath = path.join(OUT_DIR, "vitest.config.temp.ts");
   const cfg = `import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: {
-    globals: true,
-    include: ['.docs-tests/tests/**/*.test.ts'],
-  },
-});
-`;
+export default defineConfig({ test: { globals: true, include: ['.docs-tests/tests/**/*.test.ts'] } });\n`;
   await fs.writeFile(viteConfigPath, cfg, "utf8");
   return viteConfigPath;
 }
 
-/**
- * Write a minimal tsconfig that extends the project tsconfig and includes the
- * generated tests.
- */
+/** Write a tsconfig that adds Vitest globals and includes the generated tests. */
 async function writeTsconfig(): Promise<string> {
   const tsconfigPath = path.join(OUT_DIR, "tsconfig.json");
   const tsconfig = {
     extends: path.relative(OUT_DIR, path.join(PROJECT_ROOT, "tsconfig.json")),
     include: ["**/*.ts"],
-    compilerOptions: {
-      types: ["vitest/globals"],
-    },
+    compilerOptions: { types: ["vitest/globals"] },
   } as const;
   await fs.writeFile(tsconfigPath, JSON.stringify(tsconfig, null, 2), "utf8");
   return tsconfigPath;
@@ -168,77 +129,57 @@ function run(cmd: string): void {
   execSync(cmd, { stdio: "inherit", env: process.env });
 }
 
+// ---------------------------------------------------------------------------
 // Main driver
+// ---------------------------------------------------------------------------
 
 (async () => {
   try {
-    // 1. Collect markdown sources – docs directory plus root README if present.
-
     const mdFiles: string[] = [];
 
-    // Add docs directory markdown (if the directory exists)
+    // docs directory
     try {
       const stat = await fs.stat(DOCS_DIR);
-      if (stat.isDirectory()) {
+      if (stat.isDirectory())
         mdFiles.push(...(await collectMarkdown(DOCS_DIR)));
-      }
     } catch {
-      // docs/ directory is optional – ignore if missing
+      /* ignore */
     }
 
-    // Add root README (if it exists)
+    // root README
     try {
       const stat = await fs.stat(ROOT_README);
-      if (stat.isFile()) {
-        mdFiles.push(ROOT_README);
-      }
+      if (stat.isFile()) mdFiles.push(ROOT_README);
     } catch {
-      // No README found – fine, may be a template repo
+      /* ignore */
     }
 
     if (mdFiles.length === 0) {
-      console.warn(
-        "No markdown files found in docs/ or root. Nothing to test.",
-      );
+      console.warn("No markdown files found – skipping docs tests.");
       process.exit(0);
     }
 
-    // 2. Extract code blocks.
     const docsWithBlocks: Array<{ file: string; blocks: string[] }> = [];
     for (const file of mdFiles) {
       const src = await fs.readFile(file, "utf8");
       const blocks = extractTestBlocks(src);
-      if (blocks.length) {
-        docsWithBlocks.push({ file, blocks });
-      }
+      if (blocks.length) docsWithBlocks.push({ file, blocks });
     }
 
     if (docsWithBlocks.length === 0) {
       console.log(
-        "No `typescript test` code blocks found in documentation. Nothing to test.",
+        "No `typescript test` code blocks found – skipping docs tests.",
       );
       process.exit(0);
     }
 
-    // 4. Prepare output directory.
     await prepareOutDir();
-
-    // 5. Generate test files.
     await generateTests(docsWithBlocks);
-
-    // 6. Write tsconfig for type-checking.
     const tsconfigPath = await writeTsconfig();
-
-    // 7. Generate Vitest config.
     const vitestConfigPath = await writeVitestConfig();
 
-    // 8. Type-check.
     run(`pnpm exec tsc -p ${tsconfigPath} --noEmit`);
-
-    // 9. Build the library so imports resolve correctly.
     run("pnpm run build");
-
-    // 10. Run Vitest on generated tests only.
     run(`pnpm exec vitest run --config ${vitestConfigPath}`);
 
     console.log("Docs tests passed");
