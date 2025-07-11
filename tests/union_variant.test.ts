@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typed as t } from "@rybosome/type-a";
 
 /* ------------------------------------------------------------------------- */
 /* Union (`t.union`)                                                         */
@@ -20,7 +17,7 @@ class Shape extends Schema.from({
   coord: one(t.union([CoordA, CoordB])),
 }) {}
 
-describe("v3 – union & variant integration", () => {
+describe("Union & variant integration", () => {
   it("instantiates the correct ctor for union specs", () => {
     const s1 = new Shape({ coord: { x: 1 } });
     expect(s1.coord).toBeInstanceOf(CoordA);
@@ -73,7 +70,7 @@ describe("v3 – union & variant integration", () => {
   });
 
   it("rejects inputs missing the discriminator or with invalid shape", () => {
-    const o = new PetOwner({ pet: { meows: true } as any });
+    const o = new PetOwner({ pet: { meows: true } as Cat });
     const errs = o.validate();
     expect(errs.length).toBeGreaterThan(0);
     expect(errs).toContain("pet.kind: is required");

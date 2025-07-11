@@ -1,14 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
- * API v3 – Runtime `Schema` implementation backed by `TypedSpec` descriptors.
- * ---------------------------------------------------------------------------
- *
- * This experimental class mirrors the capabilities of the legacy `src/schema.ts`
- * yet replaces every generic/phantom‐type decision branch with a **single**
- * switch on `field.spec.kind`.  The public surface (constructor, `from()`,
- * `validate()`, `toJSON()`, `jsonSchema()`) therefore behaves identically while
- * being fully data‐driven at runtime – a prerequisite for the new *value-
- * parameter* API.
+ * Runtime `Schema` implementation backed by `TypedSpec` descriptors.
  */
 
 import type {
@@ -23,12 +16,10 @@ import type {
   Typeable,
   ValueMap,
 } from "@src/types";
-
-import { t } from "./typed.js";
-import type { TypedSpec } from "./typed.js";
+import { TypedSpec, t } from "@src/typed";
 
 // ---------------------------------------------------------------------------
-// Built-in primitive validators (same set as legacy implementation)
+// Built-in primitive validators
 // ---------------------------------------------------------------------------
 
 const DEFAULT_VALIDATORS: Record<string, LogicalConstraint<any>> = {
@@ -408,8 +399,6 @@ export class Schema<F extends Fields> implements SchemaInstance {
       // purpose of per-field validation (do NOT iterate over elements).
       // ------------------------------------------------------------------
 
-      // (duplicate `val` definition removed)
-
       if (
         spec &&
         typeof spec === "object" &&
@@ -530,7 +519,7 @@ export class Schema<F extends Fields> implements SchemaInstance {
   }
 
   /* --------------------------------------------------------------------- */
-  /* toJSON – mostly identical to v2 implementation                          */
+  /* toJSON
   /* --------------------------------------------------------------------- */
 
   toJSON(): ValueMap<F> {

@@ -37,9 +37,9 @@ import {
   camelCase,
   snakeCase,
   kebabCase,
-} from "../../src/constraints/string";
+} from "@src/constraints/string";
 
-describe("String validators (v3 port)", () => {
+describe("String validators", () => {
   it("empty / notEmpty / whitespace", () => {
     expect(empty("")).toBe(true);
     expect(notEmpty("x")).toBe(true);

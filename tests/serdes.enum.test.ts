@@ -1,15 +1,8 @@
 import { describe, it, expect } from "vitest";
-
-// Import *directly* from the v3 prototype modules (they are **not** re-exported
-// through the package root yet – the migration branch keeps them side-by-side
-// with the legacy implementation).
-import { Schema } from "@src/schema";
-import { one } from "@src/field";
-import { t } from "@src/typed";
+import { Schema, one, typed as t } from "@rybosome/type-a";
 
 /**
- * End-to-end checks for the `enum` and `serdes` `TypedSpec.kind`s introduced
- * in **Phase C2** of the v3 migration.
+ * End-to-end checks for the `enum` and `serdes` `TypedSpec.kind`s.
  *
  * The scenarios cover:
  *  - successful construction, validation and JSON round-trip
@@ -17,7 +10,7 @@ import { t } from "@src/typed";
  *  - JSON-Schema generation for the new spec kinds
  */
 
-describe("v3 – enum & serdes integration", () => {
+describe("enum & serdes integration", () => {
   /* --------------------------------------------------------------------- */
   /* Enum scenario                                                         */
   /* --------------------------------------------------------------------- */
@@ -35,8 +28,6 @@ describe("v3 – enum & serdes integration", () => {
     const ok = new Authz({ role: Role.Admin });
     expect(ok.validate()).toEqual([]);
 
-    // Validation happens *after* construction – invalid values do not throw
-    // immediately but surface via `validate()`.
     const bad = new Authz({ role: "superuser" as unknown as Role });
     expect(bad.validate()).toContain("role: expected one of admin, user");
   });
@@ -44,7 +35,6 @@ describe("v3 – enum & serdes integration", () => {
   it("emits correct JSON Schema for enum fields", () => {
     const schema = Authz.jsonSchema();
 
-    // Narrow snapshot – only test the part added in this phase.
     expect(schema).toMatchObject({
       properties: {
         role: {
@@ -82,8 +72,8 @@ describe("v3 – enum & serdes integration", () => {
 
     expect(errs).toBeUndefined();
     expect(val).toBeInstanceOf(LoginAttempt);
-    expect((val! as any).timestamp).toBeInstanceOf(Date);
-    expect((val! as any).timestamp.toISOString()).toBe(raw.timestamp);
+    expect(val!.timestamp).toBeInstanceOf(Date);
+    expect(val!.timestamp.toISOString()).toBe(raw.timestamp);
   });
 
   it("serializes in-memory values using the provided serializer", () => {

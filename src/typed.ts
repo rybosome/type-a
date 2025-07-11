@@ -1,17 +1,11 @@
 /*
- * Runtime type-descriptor helpers (`typed as t`) — **API v3 prototype**
+ * Runtime type-descriptor helpers (`typed as t`)
  * --------------------------------------------------------------------
  *
- * This lightweight module introduces the new *value-parameter* descriptor
- * objects used by the upcoming v3 `one()` / `many()` field builders.  Each
- * helper returns a **runtime** object that carries its *kind* (primitive,
- * enum, union, …) together with phantom generic markers so that TypeScript
- * continues to infer the same value / raw types it did with the legacy
- * generics-only API.
- *
- * For Phase B we implement only the core primitives plus literal/enum/union/
- * variant/serdes stubs — full validation and JSON-Schema emission will land in
- * the following phases.
+ * This lightweight module introduces *value-parameter* descriptor objects used by the `one()` /
+ * `many()` field builders.  Each helper returns a **runtime** object that carries its *kind*
+ * (primitive, enum, union, …) together with phantom generic markers so that TypeScript
+ * infers value and raw types.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
