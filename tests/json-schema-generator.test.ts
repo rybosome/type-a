@@ -105,3 +105,119 @@ it.skip("deduplicates nested schemas via $ref", () => {
   // Expected: repeated use of the same nested Schema class should be factored
   // out into a definition and referenced via `$ref`.
 });
+
+/* -------------------------------------------------------------------------- */
+/* Comprehensive object-literal assertions                                    */
+/* -------------------------------------------------------------------------- */
+
+describe("generateJsonSchema – complete equality for primitive & nested object", () => {
+  const actual = generateJsonSchema(Person._schema as any);
+
+  const expected = {
+    $schema: "http://json-schema.org/draft-04/schema#",
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      age: { type: "number" },
+      address: { type: "object" },
+    },
+    required: ["name", "age", "address"],
+  } as const;
+
+  it("matches the exact expected JSON schema", () => {
+    expect(actual).toEqual(expected);
+  });
+});
+
+describe("generateJsonSchema – arrays of primitives", () => {
+  class NumbersWrapper extends Schema.from({
+    numbers: many().of<number[]>({ default: [] }),
+  }) {}
+
+  const actual = generateJsonSchema(NumbersWrapper._schema as any);
+
+  const expected = {
+    $schema: "http://json-schema.org/draft-04/schema#",
+    type: "object",
+    properties: {
+      numbers: { type: "array" },
+    },
+    required: ["numbers"],
+  } as const;
+
+  it("matches the exact expected JSON schema", () => {
+    expect(actual).toEqual(expected);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Pending complex scenarios ------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+describe.skip("generateJsonSchema – nested objects with required & optional properties", () => {
+  class Config extends Schema.from({
+    mandatory: one().of<string>({}),
+    optional: one().of<number>({ default: 42 }),
+  }) {}
+
+  const expected = {
+    $schema: "http://json-schema.org/draft-04/schema#",
+    type: "object",
+    properties: {
+      mandatory: { type: "string" },
+      optional: { type: "number", default: 42 },
+    },
+    required: ["mandatory"],
+  };
+
+  const actual = generateJsonSchema(Config._schema as any);
+
+  it("would generate required/optional correctly", () => {
+    expect(actual).toEqual(expected);
+  });
+});
+
+describe.skip("generateJsonSchema – arrays of objects", () => {
+  const actual = generateJsonSchema(Company._schema as any);
+
+  const expected = {
+    $schema: "http://json-schema.org/draft-04/schema#",
+    type: "object",
+    properties: {
+      companyName: { type: "string" },
+      employees: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            age: { type: "number" },
+            address: { type: "object" },
+          },
+          required: ["name", "age", "address"],
+        },
+      },
+    },
+    required: ["companyName", "employees"],
+  };
+
+  it("would produce array of object schema with items", () => {
+    expect(actual).toEqual(expected);
+  });
+});
+
+// Additional bullet scenarios (enum, unions, combinators etc.) below as skipped suites
+
+describe.skip("generateJsonSchema – enum types & literal unions", () => {
+  /* Implementation pending in JSON-Schema generator */
+});
+
+describe.skip("generateJsonSchema – oneOf/anyOf/allOf combinations", () => {});
+
+describe.skip("generateJsonSchema – $ref reuse & recursive schemas", () => {});
+
+describe.skip("generateJsonSchema – patternProperties & additionalProperties", () => {});
+
+describe.skip("generateJsonSchema – nullable types & defaults", () => {});
+
+describe.skip("generateJsonSchema – deeply nested combinations", () => {});
