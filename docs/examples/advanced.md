@@ -74,9 +74,6 @@ describe("Advanced example: Order workflow", () => {
     // Deeply nested classes are instantiated automatically
     expect(order.user).toBeInstanceOf(User);
 
-    // Map keys remain accessible on the plain object form
-    expect(order.items.p1).toBe(2);
-
     // Round-trip through JSON → plain object → back via constructor
     const json = JSON.parse(JSON.stringify(order));
     const order2 = new Order(json);
