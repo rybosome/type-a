@@ -59,5 +59,5 @@ describe("Quick-start", () => {
 
 ---
 
-Continue with the [**advanced** example](./advanced.md) to see nested schemas,
+Continue with the [**advanced** example](https://rybosome.github.io/type-a/docs/examples/advanced/) to see nested schemas,
 maps, and custom serializers in action.
