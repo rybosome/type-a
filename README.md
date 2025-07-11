@@ -2,112 +2,115 @@
 
 <img src="https://github.com/rybosome/type-a/raw/refs/heads/main/docs/assets/anna-adder.png">
 
-A minimal, class-first validation library for TypeScript — inspired by Python’s Pydantic, but built for the TypeScript ecosystem. Define schema and logic together, with zero decorators, zero codegen, and native field access via classes.
+## Overview
 
-## ✨ Features
+A minimal, class-first schema library with lightweight reflection for TypeScript.
 
-- Class-based API with native this.property field access
-- Schema and validation co-located with class declaration
-- Type-safe constructor input inference from schema
-- No decorators, reflect-metadata, or TypeScript hacks
-- Zero duplication — schema defines both runtime behavior and static types
-- Lightweight and dependency-free
-
-## 📦 Installation
-
-- NPM: `npm install @rybosome/type-a`
-- PNPM: `pnpm add @rybosome/type-a`
-
-## 🚀 Quick Start
+**📚 Documentation**: https://rybosome.github.io/type-a/
 
 ```typescript
-import { Maybe, Of, Schema, atLeast, aUUID } from "@rybosome/type-a";
-
-//
-// Define a schema expressing typing and input shape expectations
-//
+import { Schema, one, constraints as c, typing as t } from "@rybosome/type-a";
 
 class User extends Schema.from({
-  id: Of<string>({ is: aUUID }),
-  age: Of<number>({ is: atLeast(0) }),
+  id: one(t.string, { is: c.aUUID }),
+  age: one(t.number, { is: c.atLeast(0) }),
 }) {
   greet() {
     return `Hello! My ID is ${this.id} and I'm ${this.age} years old.`;
   }
 }
+```
 
-//
-// Instantiating schema models - success
-//
+### 📦 Installation
 
-// Try to create a new object from the given (statically-typed) input.
-const goodResult: Maybe<User> = User.tryNew({
+- NPM: `npm install @rybosome/type-a`
+- PNPM: `pnpm add @rybosome/type-a`
+
+### ✨ Highlights
+
+- Class-based API with native this.property field access
+- Schema and validation co-located with class declaration
+- Type-safe constructor input inference from schema
+- No decorators or reflect-metadata
+- Zero duplication — schema defines both runtime behavior and static types
+- Lightweight and dependency-free
+
+### 🔍 Comparison
+
+`type-a` exists within a rich ecosystem of libraries and tools for declarative models. Each offer
+various design tradeoffs and areas of focus.
+
+| Feature                | type-a | Zod | class-validator + transformer | ArkType | Typia |
+| ---------------------- | ------ | --- | ----------------------------- | ------- | ----- |
+| Class syntax           | ✅     | ❌  | ✅                            | ❌      | ✅    |
+| Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
+| Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
+| Mature                 | ❌     | ✅  | ✅                            | ✅      | ✅    |
+
+`type-a` may be interesting to developers looking for a light, class-forward model with some
+reflective capabilities, without reflective penalties.
+
+## Features
+
+### Standard class initialization and property access
+
+Schema definitions are typical TypeScript classes, instantiate them from `new` with a typed
+constructor, then access the properties and call the methods as you'd expect.
+
+```typescript
+const u1: User = new User({
+  id: "123e4567-e89b-12d3-a456-426614174000",
+  age: 30,
+});
+
+expect(u1.id instanceof string).toBeTrue();
+expect(u1.age instanceof number).toBeTrue();
+expect(u1.greet()).toBe(
+  "Hello! My ID is 123e4567-e89b-12d3-a456-426614174000 and I'm 30 years old.",
+);
+```
+
+### Validation
+
+`new` initialization is type-checked at compile-time by TypeScript. For runtime
+type-checking and value-checking, there is a `fromJSON` entrypoint.
+
+This returns a `Maybe` value, which will either have your class instance at `.val` or a structured
+error log at `.err`.
+
+````typescript
+const goodResult: Maybe<User> = User.fromJSON({
   id: "123e4567-e89b-12d3-a456-426614174000",
   age: 30,
 });
 
 // This object passes all validation, so the value on the result is defined.
-if (goodResult.val) {
-  const u: User = goodResult.val;
-  console.log(u.greet()); // Hello! My ID is 123e4567-e89b-12d3-a456-426614174000 and I'm 30 years old.
-}
-
-//
-// Instantiating schema models - failure
-//
+const u2 = goodResult.val!;
+expect(u2.greet()).toBe(
+  "Hello! My ID is 123e4567-e89b-12d3-a456-426614174000 and I'm 30 years old.",
+);
 
 // Try to create a new object that is correctly typed but violates logical constraints.
-const badResult: Maybe<User> = User.tryNew({ id: "not a UUID", age: 25 });
+const badResult: Maybe<User> = User.fromJSON({ id: "not a UUID", age: 25 });
 
-// .errs is a structured object containing fields mapping to our original object.
-if (badResult.errs) {
-  // The .id field of the error log should be set
-  console.log(badResult.errs?.id ?? "id is OK"); // Prints "'not a UUID' is not a valid UUID"
+// .errs is an optional structured object containing fields mapping to our original object.
+//
+// It will be set in this case, because we have passed JSON which violates either type or value
+// checking.
+const errs = badResult.errs!;
 
-  // The .age field of the error log should NOT be set
-  console.log(badResult.errs?.name ?? "name is OK"); // Prints "name is OK"
+expect(errs.id).toBe("'not a UUID' is not a valid UUID");
+expect(errs.age).toBeUndefined();
 
-  // We can summarize all problems with the input.
-  console.log(badResult.errs?.summarize());
+// .summarize() returns a human readable summary of the problems in the schema
+expect(errs.summarize()).toBe(
+  ```id: 'not a UUID' is not a valid UUID
+name: OK
+```,
+);
+````
 
-  // Prints the following:
-  //  id: 'not a UUID' is not a valid UUID
-  //  name: OK
-}
-```
-
-## 🗂️ Nested schemas & array helpers
-
-`Of()` now accepts a Schema class (or an array form) **plus** additional field options.
-Passing a plain object — or an array of plain objects — automatically instantiates the
-corresponding nested schema class(es).
-
-```ts
-const isValidLogin = (val: LoginAttempt) =>
-  val.unixTimestampMs >= 0 || "timestamp must be positive";
-
-class LoginAttempt extends Schema.from({
-  success: Of<boolean>(),
-  unixTimestampMs: Of<number>(),
-}) {}
-
-class User extends Schema.from({
-  // Array-of-schema with custom validator – note the `[LoginAttempt]` wrapper
-  loginAttempts: Of([LoginAttempt], { is: isValidLogin }),
-}) {}
-
-// Raw object(s) are converted to `LoginAttempt` instances automatically
-const u = new User({
-  loginAttempts: [
-    { success: true, unixTimestampMs: 100 },
-    { success: false, unixTimestampMs: 200 },
-  ],
-});
-
-console.log(u.loginAttempts[0] instanceof LoginAttempt); // true
-```
-
-## 🔄 Custom serialization / deserialization
+### 🔄 Custom serialization / deserialization
 
 Certain complex runtime types (such as `Date`, `URL`, or bespoke domain objects)
 don’t have a JSON-compatible representation out-of-the-box. `type-a` lets you
@@ -116,14 +119,16 @@ seamlessly accept raw JSON values **and** emit fully serialised JSON again –
 without additional plumbing code.
 
 ```typescript
-import { Schema, Of } from "@rybosome/type-a";
+import { Schema, one, typing as t } from "@rybosome/type-a";
 
 const serializeDate = (d: Date) => d.toISOString();
 const deserializeDate = (s: string) => new Date(s);
 
 class Event extends Schema.from({
-  title: Of<string>(),
-  when: Of<Date>({ serdes: [serializeDate, deserializeDate] }),
+  title: one(t.string),
+  when: one(t.serdes(Date, t.string), {
+    serdes: [serializeDate, deserializeDate],
+  }),
 }) {}
 
 // Accepts ISO-8601 strings (raw JSON) …
@@ -140,17 +145,25 @@ Both functions must form an exact inverse pair – the serializer is typed as
 `(value: T) => Raw` while the deserializer is `(value: Raw) => T`. Supplying a
 mismatched pair will fail at compile-time.
 
-## 🔍 Comparison
+### JSON Schema Generation
 
-| Feature                | type-a | Zod | class-validator + transformer | ArkType | Typia |
-| ---------------------- | ------ | --- | ----------------------------- | ------- | ----- |
-| Class syntax           | ✅     | ❌  | ✅                            | ❌      | ✅    |
-| Field access           | ✅     | ✅  | ✅                            | ❌      | ✅    |
-| Type-safe input        | ✅     | ✅  | ⚠️ Manual                     | ✅      | ✅    |
-| Runtime validation     | ✅     | ✅  | ✅                            | ✅      | ✅    |
-| Avoids decorators      | ✅     | ✅  | ❌                            | ✅      | ✅    |
-| Avoids code generation | ✅     | ✅  | ✅                            | ✅      | ❌    |
+Generate JSON schema documents at runtime for your class definitions.
 
+```typescript
+// TODO: example of JSON schema generation.
 ```
 
-```
+## Documentation
+
+TODO: document links to...
+
+- entrypoints: one/many
+- types in typing
+  - primitives
+  - tuples, unions, variants
+  - maps
+  - nested schemas
+- config options
+  - constraints
+  - serdes
+- examples

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import {
   empty,
   notEmpty,
@@ -36,10 +37,9 @@ import {
   camelCase,
   snakeCase,
   kebabCase,
-} from "@rybosome/type-a";
+} from "../../src/constraints/string";
 
-describe("String validators", () => {
-  // Basic content
+describe("String validators (v3 port)", () => {
   it("empty / notEmpty / whitespace", () => {
     expect(empty("")).toBe(true);
     expect(notEmpty("x")).toBe(true);
@@ -51,7 +51,6 @@ describe("String validators", () => {
     expect(notEqualTo("abc")("xyz")).toBe(true);
   });
 
-  // Length
   it("length constraints", () => {
     expect(longerThan(2)("abcd")).toBe(true);
     expect(shorterThan(5)("abcd")).toBe(true);
@@ -61,7 +60,6 @@ describe("String validators", () => {
     expect(lengthBetween(2, 4)("abc")).toBe(true);
   });
 
-  // Character set & encoding
   it("character set validators", () => {
     expect(validAscii("Hello!")).toBe(true);
     expect(alphanumeric("abc123")).toBe(true);
@@ -72,7 +70,6 @@ describe("String validators", () => {
     expect(uuid("2f1c4fa5-7ef8-4bbc-9bba-4e497c6be995")).toBe(true);
   });
 
-  // Structural
   it("structural validators", () => {
     expect(matching(/^[abc]+$/)("abccba")).toBe(true);
     expect(startingWith("foo")("foobar")).toBe(true);
@@ -88,7 +85,6 @@ describe("String validators", () => {
     expect(dateIso("2023-06-25")).toBe(true);
   });
 
-  // Casing / style
   it("casing validators", () => {
     expect(lowerCase("hello")).toBe(true);
     expect(upperCase("UPPER")).toBe(true);

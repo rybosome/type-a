@@ -1,22 +1,24 @@
 # Type-A Documentation Examples
 
-This repository uses **Type-A** for schema validation. The snippets below are **live tests** – they are automatically compiled and executed by the `pnpm docs:test` script to ensure the examples remain correct and type-safe.
+This repository uses **Type-A** for schema validation. The snippet below is a **live test** – it is compiled and executed by `pnpm docs:test` to guarantee the example remains correct and type-safe.
 
-```typescript test
-import { Schema, one } from "@rybosome/type-a";
+```ts test
+import { describe, it, expect } from "vitest";
+import { Schema, one, typed as t } from "@rybosome/type-a";
 
-// A simple schema definition using Type-A.
-class User extends Schema.from({
-  name: one().of<string>({}),
-  age: one().of<number>({}),
-}) {}
+describe("User schema basics", () => {
+  it("constructs and exposes validated fields", () => {
+    class User extends Schema.from({
+      name: one(t.string),
+      age: one(t.number),
+    }) {}
 
-// Runtime validation & property access
-const u = new User({ name: "Alice", age: 42 });
+    const u = new User({ name: "Alice", age: 42 });
 
-expect(u.name).toBe("Alice");
-expect(u.age).toBe(42);
+    expect(u.name).toBe("Alice");
+    expect(u.age).toBe(42);
+  });
+});
 ```
 
-If the snippet above fails to compile or its assertions fail, the documentation
-tests will fail in CI, alerting us that the example needs to be updated.
+If the snippet above fails to compile or its assertions fail, the documentation tests will fail in CI, alerting us that the example needs to be updated.

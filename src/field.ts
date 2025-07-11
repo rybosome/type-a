@@ -1,186 +1,195 @@
+/*
+ * Prototype implementation of `one()` / `many()` builders — **API v3**
+ * ------------------------------------------------------------------
+ *
+ * These functions mirror the legacy builders found in `src/field.ts` but take
+ * a **runtime descriptor** (`TypedSpec` from `v3/typed.ts`) instead of generic
+ * type parameters.  At this stage we only care about *typing* and the ability
+ * to attach `spec` metadata — full validation & JSON-Schema emission will land
+ * in the next migration phases.
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type {
   FieldType,
-  LogicalConstraint,
-  Nested,
   SchemaClass,
   Typeable,
-  Serdes,
+  InputOf,
+  OutputOf,
 } from "@src/types";
+import type { LogicalConstraint, Serdes } from "@src/types";
+
+// ---------------------------------------------------------------------------
+// Extended v3-specific FieldOpts additions
+// ---------------------------------------------------------------------------
 
 /**
- * Options object accepted by {@link one} / {@link many} builders.
- * This mirrors the legacy `Of()` helper so that **all** previous capabilities
- * (defaults, validators, custom serdes, variant unions) remain available under
- * the new API.
+ * Extra options introduced by the API v3 runtime descriptor migration.  These
+ * keys are *not* present in the legacy builder but are harmlessly ignored by
+ * existing call-sites because we intersect them onto the previous type.
  */
-export interface FieldOpts<T extends Typeable, R = T> {
+/**
+ * Core builder options shared between both `one()` and `many()`.
+ * Extracted from the removed legacy builder so we can drop the file while
+ * keeping the public type contract intact.
+ */
+export interface BaseFieldOpts<T extends Typeable, R = T> {
   /** Optional default value or thunk returning the value. */
   default?: T | (() => T);
 
   /** Runtime validator (or array of validators). */
   is?: LogicalConstraint<NonNullable<T>> | LogicalConstraint<NonNullable<T>>[];
 
-  /**
-   * Custom serialisation/deserialisation tuple.  See {@link Serdes}.
-   */
+  /** Custom serialisation/deserialisation tuple. */
   serdes?: Serdes<T, R>;
 
   /**
-   * Explicit discriminated-union support. When provided **Type-A** will pick the
-   * correct constructor at runtime based on either the `kind` discriminator or
-   * the field-overlap heuristic (see implementation in `schema.ts`).
+   * Explicit discriminated-union support. When provided **Type-A** picks the
+   * constructor at runtime based on the incoming raw object’s discriminator
+   * value.
    */
   variantClasses?: SchemaClass[];
 }
 
-/* -------------------------------------------------------------------------- */
-/* Internal helper                                                           */
-/* -------------------------------------------------------------------------- */
+interface FieldExtras {
+  /** Marks the field as optional (omitting it in the constructor is allowed). */
+  optional?: boolean;
 
-function makeField<T extends Typeable>(
-  opts: FieldOpts<T, any>,
-  schemaClass?: SchemaClass,
-): FieldType<T> {
-  const field = {
-    __t: undefined as unknown as T,
-    value: undefined as unknown as T,
-  } as FieldType<T>;
+  /** When `true`, the field accepts `null` in addition to its regular type. */
+  nullable?: boolean;
 
-  if (schemaClass) (field as any).schemaClass = schemaClass;
+  /** Human-readable description forwarded to JSON-Schema `description`. */
+  described?: string;
+
+  /**
+   * When used with {@link many}, declares that the collection should be a
+   * `Set` instead of the default `Array`.  This flag has **no effect** when
+   * passed to {@link one}.
+   */
+  asSet?: boolean;
+}
+
+import type { RawOfSpec, TypedSpec, ValueOfSpec } from "./typed.js";
+
+// ---------------------------------------------------------------------------
+// FieldOpts — identical to the v2 version, re-exported for convenience.
+// ---------------------------------------------------------------------------
+
+export type FieldOpts<T extends Typeable, R = T> = BaseFieldOpts<T, R> &
+  FieldExtras;
+
+// ---------------------------------------------------------------------------
+// Helper type utilities for SchemaClass specs.
+// ---------------------------------------------------------------------------
+
+type ValueOfSchema<S extends SchemaClass> = OutputOf<S>;
+type RawOfSchema<S extends SchemaClass> = InputOf<S>;
+
+type ValueOf<S> = S extends SchemaClass
+  ? ValueOfSchema<S>
+  : S extends TypedSpec<any, any>
+    ? ValueOfSpec<S>
+    : never;
+
+type RawOf<S> = S extends SchemaClass
+  ? RawOfSchema<S>
+  : S extends TypedSpec<any, any>
+    ? RawOfSpec<S>
+    : never;
+
+// ---------------------------------------------------------------------------
+// Internal helper — constructs the FieldType object.
+// ---------------------------------------------------------------------------
+
+function makeField<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: FieldOpts<ValueOf<S>, RawOf<S>> = {},
+): FieldType<ValueOf<S>, RawOf<S>> & { spec: S } {
+  const field: FieldType<ValueOf<S>, RawOf<S>> & { spec: S } = {
+    // Phantom marker — ensures `ValueOf<S>` survives inference.
+    __t: undefined as unknown as ValueOf<S>,
+    value: undefined as unknown as ValueOf<S>,
+    spec,
+  } as any;
+
+  // Attach optional metadata identically to the legacy builder.
   if (opts.default !== undefined) (field as any).default = opts.default;
   if (opts.is) (field as any).is = opts.is;
-  if ((opts as any).serdes) (field as any).serdes = (opts as any).serdes;
-  if (opts.variantClasses) (field as any).variantClasses = opts.variantClasses;
+  if (opts.serdes) (field as any).serdes = opts.serdes;
+
+  /* --------------------------------------------------------------- */
+  /* v3-specific extras                                              */
+  /* --------------------------------------------------------------- */
+
+  if (opts.optional) (field as any).optional = true;
+  if (opts.nullable) (field as any).nullable = true;
+  if (opts.described) (field as any).description = opts.described;
+
+  // Nested schema handling — if the *spec* is a SchemaClass attach it so that
+  // the constructor can rehydrate later on (implemented in Phase C).
+  if (typeof spec === "function") {
+    (field as any).schemaClass = spec;
+  }
 
   return field;
 }
 
-/* -------------------------------------------------------------------------- */
-/* one() builder                                                             */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// one() builder
+// ---------------------------------------------------------------------------
 
-import type { FieldWithDefault, FieldWithoutDefault } from "@src/types";
-
-/**
- * Helper type used by the builder overloads when *no* default value is
- * supplied.  It is simply the {@link FieldOpts} interface minus the optional
- * `default` key.  We intentionally do **not** try to outlaw `default` via
- * `& { default?: never }` because that makes it impossible for an intersection
- * with a *required* default (used by the other overload) to succeed – the
- * conflicting property types (`never` vs `T`) collapse to `never`, breaking
- * overload resolution.
- */
-
-/* -------------------------------------------------------------------------- */
-/* Helper type utilities                                                     */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Extract the *in-memory* value type from a `one().of` generic spec.
- *
- *   ValueOfSpec<string>                     -> string
- *   ValueOfSpec<Serdes<Date, string>>       -> Date
- */
-type ValueOfSpec<S> = S extends Serdes<infer V, any> ? V : S;
-
-/**
- * Extract the *raw* (serialised) representation type from the same spec.
- * When the spec is not a {@link Serdes} tuple the type defaults to the value
- * type so nothing changes compared to the legacy behaviour.
- */
-type RawOfSpec<S> = S extends Serdes<any, infer R> ? R : S;
-
-/**
- * Variant of {@link WithoutDefault} that operates on a *spec* type (either a
- * plain Typeable or a `Serdes<…>` tuple).
- */
-type WithoutDefaultSpec<S> = Omit<
-  FieldOpts<
-    ValueOfSpec<S> extends Typeable ? ValueOfSpec<S> : never,
-    RawOfSpec<S>
-  >,
-  "default"
->;
-
-interface OneNoSchemaBuilder {
-  /** Overload: `default` supplied → returns `FieldWithDefault` */
-  of<Spec extends Typeable | Serdes<any, any>>(
-    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
-    },
-  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
-
-  /** Overload: no `default` supplied → returns `FieldWithoutDefault` */
-  of<Spec extends Typeable | Serdes<any, any>>(
-    opts: WithoutDefaultSpec<Spec>,
-  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
+export function one<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: FieldOpts<ValueOf<S>, RawOf<S>> = {},
+): FieldType<ValueOf<S>, RawOf<S>> & { spec: S } {
+  const field = makeField(spec, opts);
+  (field as any).cardinality = "one";
+  return field;
 }
 
-interface OneWithSchemaBuilder<S extends SchemaClass> {
-  of<Spec extends Nested<S> | Serdes<any, any>>(
-    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
-    },
-  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & { schemaClass: S };
+// ---------------------------------------------------------------------------
+// many() builder — arrays only for the prototype (Set support later).
+// ---------------------------------------------------------------------------
 
-  of<Spec extends Nested<S> | Serdes<any, any>>(
-    opts: WithoutDefaultSpec<Spec>,
-  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-    schemaClass: S;
-  };
-}
+// ---------------------------------------------------------------------------
+// many() builder — supports both Array (default) **and** Set collections.
+// ---------------------------------------------------------------------------
 
-export function one(): OneNoSchemaBuilder;
-export function one<S extends SchemaClass>(
-  schemaClass: S,
-): OneWithSchemaBuilder<S>;
-export function one(schemaClass?: SchemaClass): any {
-  return {
-    of<T extends Typeable>(opts: FieldOpts<T>): FieldType<T> {
-      return makeField(opts, schemaClass);
-    },
-  };
-}
+// Overload – Array (default)
+export function many<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts?: FieldOpts<Array<ValueOf<S>>, Array<RawOf<S>>> & {
+    asSet?: false | undefined;
+  },
+): FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & { spec: S };
 
-/* -------------------------------------------------------------------------- */
-/* many() builder                                                            */
-/* -------------------------------------------------------------------------- */
+// Overload – Set (when opts.asSet === true)
+export function many<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: FieldOpts<Set<ValueOf<S>>, Set<RawOf<S>>> & { asSet: true },
+): FieldType<Set<ValueOf<S>>, Set<RawOf<S>>> & { spec: S };
 
-interface ManyNoSchemaBuilder {
-  of<Spec extends (Typeable | Serdes<any, any>)[]>(
-    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
-    },
-  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
+// Implementation
+export function many<S extends SchemaClass | TypedSpec<any, any>>(
+  spec: S,
+  opts: any = {},
+): FieldType<any, any> & { spec: S } {
+  const isSet = (opts as FieldExtras | undefined)?.asSet === true;
 
-  of<Spec extends (Typeable | Serdes<any, any>)[]>(
-    opts: WithoutDefaultSpec<Spec>,
-  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>>;
-}
+  // Cast through `unknown` because `makeField` operates on the *element* type.
+  const fieldBase = makeField(
+    spec,
+    opts as unknown as FieldOpts<ValueOf<S>, RawOf<S>>,
+  ) as FieldType<any, any> & { spec: S };
 
-interface ManyWithSchemaBuilder<S extends SchemaClass> {
-  of<Spec extends (Nested<S> | Serdes<any, any>)[]>(
-    opts: FieldOpts<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-      default: ValueOfSpec<Spec> | (() => ValueOfSpec<Spec>);
-    },
-  ): FieldWithDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & { schemaClass: S };
+  if (isSet) {
+    (fieldBase as any).cardinality = "set";
+    return fieldBase as FieldType<Set<ValueOf<S>>, Set<RawOf<S>>> & { spec: S };
+  }
 
-  of<Spec extends (Nested<S> | Serdes<any, any>)[]>(
-    opts: WithoutDefaultSpec<Spec>,
-  ): FieldWithoutDefault<ValueOfSpec<Spec>, RawOfSpec<Spec>> & {
-    schemaClass: S;
-  };
-}
-
-export function many(): ManyNoSchemaBuilder;
-export function many<S extends SchemaClass>(
-  schemaClass: S,
-): ManyWithSchemaBuilder<S>;
-export function many(schemaClass?: SchemaClass): any {
-  return {
-    of<T extends Typeable[]>(opts: FieldOpts<T>): FieldType<T> {
-      return makeField(opts, schemaClass);
-    },
+  (fieldBase as any).cardinality = "array";
+  return fieldBase as FieldType<Array<ValueOf<S>>, Array<RawOf<S>>> & {
+    spec: S;
   };
 }

@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 
-import { aLiteral } from "@rybosome/type-a";
+// The helper lives outside the v3 runtime – import directly from its module
+import { aLiteral } from "../../src/conditionals/utils";
 
-describe("aLiteral helper", () => {
+describe("aLiteral helper (v3 port)", () => {
   it("accepts allowed string literals", () => {
     const isPet = aLiteral("dog", "cat");
     expect(isPet("dog")).toBe(true);
@@ -19,6 +20,7 @@ describe("aLiteral helper", () => {
     expect(isFlag(true)).toBe(true);
     expect(isFlag(false)).toBe(true);
     // @ts-expect-error – number is not part of the union
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     () => isFlag(1);
 
     const isStatus = aLiteral(200, 404);
