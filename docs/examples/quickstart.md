@@ -12,7 +12,7 @@ pnpm add @rybosome/type-a vitest -D
 
 ## 2 – Write your first schema
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import {
   Schema,

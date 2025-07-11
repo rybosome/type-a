@@ -3,7 +3,7 @@
 When you need a field to _deserialize_ from one type but _expose_ a richer
 runtime class, use the `t.serdes()` descriptor.
 
-```typescript test
+```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 

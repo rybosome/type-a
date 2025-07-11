@@ -4,7 +4,7 @@ Constraints are reusable runtime predicates that can be attached to any field
 via the `{ is: … }` option. They return `true` on success or an _error string_
 that is collected by `schema.validate()`.
 
-```typescript test
+```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 

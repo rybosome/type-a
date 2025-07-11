@@ -5,7 +5,7 @@ values, constraints, serialization functions (serdes), and more. In addition,
 calling `MySchema.jsonSchema()` returns an [JSON-Schema Draft-07](https://json-schema.org/) representation of the class that is fully
 compatible with popular validators like AJV.
 
-```typescript test
+```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, typed as t } from "@rybosome/type-a";
 

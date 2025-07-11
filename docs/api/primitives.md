@@ -3,7 +3,7 @@
 Primitive type descriptors live in the `t.*` namespace and include
 `string`, `number`, `boolean`, and `bigint`.
 
-```typescript test
+```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 

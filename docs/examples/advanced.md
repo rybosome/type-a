@@ -3,7 +3,7 @@
 This scenario chains together **nested schemas**, **maps**, **constraints**, and
 **serdes** to showcase real-world composition.
 
-```ts test
+```ts
 import { describe, it, expect } from "vitest";
 import {
   Schema,

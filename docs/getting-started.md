@@ -22,7 +22,7 @@ npm install @rybosome/type-a vitest --save-dev
 The snippet below defines a minimal `User` schema, instantiates it with data, and
 runs a validation.
 
-```typescript test
+```typescript
 import { describe, it, expect } from "vitest";
 import { Schema, one, constraints as c, typed as t } from "@rybosome/type-a";
 
