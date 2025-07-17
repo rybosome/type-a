@@ -1,8 +1,10 @@
 name: Build & Test
 
-# Reusable workflow containing the canonical CI logic (lint ➜ type-check ➜ build ➜ test).
-# This workflow is intended to be invoked via `workflow_call` from other workflows
-# (e.g. PR checks, release pipeline) to ensure a single source of truth.
+# Reusable workflow that performs all CI quality gates. The original single job
+# design has been split into independent – and therefore parallelisable – jobs
+# for lint, build, test and bundle-size. Downstream workflows (`Merge Checks`,
+# `Release`) reference this workflow via `workflow_call` so a single update
+# remains the source-of-truth.
 
 on:
   workflow_call:
@@ -14,21 +16,22 @@ on:
         required: false
 
 jobs:
-  build-test:
-    name: Lint, Build & Test
+  # -------------------------------------------------------------------------
+  # Linting & Formatting
+  # -------------------------------------------------------------------------
+  lint:
     runs-on: ubuntu-latest
-
+    name: Lint & Format
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
+          cache: "pnpm" # built-in pnpm/LRU cache
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v2
         with:
           version: 9
           run_install: false
@@ -36,20 +39,141 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      # ------------------ Code Quality ------------------
-      - name: Lint with ESLint (check only)
+      # pnpm installs Node.js symlinks under ~/.cache – ensure cache persists
+      - name: Cache tsup cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/tsup
+          key: ${{ runner.os }}-tsup-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsup-
+
+      - name: ESLint (check only)
         run: pnpm exec eslint src --ext .ts
 
-      - name: Check formatting with Prettier
+      - name: Prettier – check formatting
         run: pnpm exec prettier --check .
 
-      # ------------------ Build ------------------
-      - name: TypeScript type-check (tsc)
+  # -------------------------------------------------------------------------
+  # Build (type-check and compile via tsup)
+  # -------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+    name: TypeScript build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "pnpm"
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Cache tsup cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/tsup
+          key: ${{ runner.os }}-tsup-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsup-
+
+      - name: Type-check with tsc
         run: pnpm exec tsc --noEmit --pretty
 
-      - name: Build with tsup
+      - name: Build with tsup (dist output)
         run: pnpm run build
 
-      # ------------------ Tests ------------------
-      - name: Run unit tests with Vitest
-        run: pnpm exec vitest --run --reporter=default
+      - name: Upload dist as artifact (for downstream size-limit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/**
+
+  # -------------------------------------------------------------------------
+  # Unit & docs tests with coverage
+  # -------------------------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    name: Vitest + docs examples
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "pnpm"
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Restore tsup cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/tsup
+          key: ${{ runner.os }}-tsup-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsup-
+
+      - name: Build (needed for docs-tests)
+        run: pnpm run build
+
+      - name: Run unit & docs tests with coverage (80 % gate)
+        run: pnpm exec vitest --run --coverage
+
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: coverage/
+
+  # -------------------------------------------------------------------------
+  # Bundle size guard – fails if dist/index.js exceeds limit defined in
+  # .size-limit.cjs (10 kB currently).
+  # -------------------------------------------------------------------------
+  size-limit:
+    runs-on: ubuntu-latest
+    needs: build
+    name: Size-limit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "pnpm"
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      # No need to rebuild – reuse artifact from build job
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Enforce bundle size
+        run: pnpm exec size-limit

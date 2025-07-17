@@ -1,0 +1,8 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "tsconfig": "tsconfig.json",
+  "out": "docs/api",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "hideGenerator": true
+}
