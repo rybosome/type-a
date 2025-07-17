@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // docs-test.ts
-// Traverses the docs/ directory, extracts fenced TypeScript code blocks,
+// Traverses the project, extracts fenced TypeScript code blocks,
 // converts them into temporary Vitest test files, type-checks them with tsc,
 // and executes them with Vitest. Exits with a non-zero status on any failure.
 
