@@ -1,5 +1,7 @@
 # type-a
 
+[📖 API Docs](https://rybosome.github.io/type-a)
+
 <p align="center">
   <img src="https://rybosome.github.io/type-a/assets/anna-adder.png" alt="Anna Adder – project mascot" />
 </p>

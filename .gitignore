@@ -3,3 +3,7 @@ dist/
 .DS_Store
 tmp/
 .docs-tests/
+# CI artifacts
+coverage/
+# typedoc output
+docs/api/
